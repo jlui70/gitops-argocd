@@ -1,0 +1,60 @@
+---
+- name: "[INFRA] Obter informações dos nodes"
+  kubernetes.core.k8s_info:
+    kind: Node
+    kubeconfig: "{{ kubeconfig_path | default('~/.kube/config') }}"
+  register: nodes
+
+- name: "[INFRA] Validar nodes estão Ready"
+  assert:
+    that:
+      - nodes.resources | length > 0
+      - item.status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+    fail_msg: "Node {{ item.metadata.name }} não está Ready"
+    success_msg: "✅ Node {{ item.metadata.name }} está Ready"
+  loop: "{{ nodes.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: "[NETWORK] Validar ALB Controller"
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: aws-load-balancer-controller
+    namespace: kube-system
+    kubeconfig: "{{ kubeconfig_path | default('~/.kube/config') }}"
+  register: alb_controller
+
+- name: "[NETWORK] Verificar ALB Controller Running"
+  assert:
+    that:
+      - alb_controller.resources | length > 0
+      - alb_controller.resources[0].status.readyReplicas == alb_controller.resources[0].spec.replicas
+    success_msg: "✅ ALB Controller: {{ alb_controller.resources[0].status.readyReplicas }}/{{ alb_controller.resources[0].spec.replicas }} replicas"
+
+- name: "[KARPENTER] Validar Karpenter Controller"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: kube-system
+    label_selectors:
+      - app.kubernetes.io/name=karpenter
+    kubeconfig: "{{ kubeconfig_path | default('~/.kube/config') }}"
+  register: karpenter_pods
+
+- name: "[KARPENTER] Verificar Karpenter Running"
+  assert:
+    that:
+      - karpenter_pods.resources | length > 0
+    success_msg: "✅ Karpenter: {{ karpenter_pods.resources | length }} pods running"
+
+- name: "Gerar relatório"
+  debug:
+    msg: |
+      ========================================
+      ✅ CLUSTER VALIDADO COM SUCESSO
+      ========================================
+      
+      📊 Nodes: {{ nodes.resources | length }} Ready
+      🌐 ALB Controller: Running
+      🚀 Karpenter: Running
+      
+      ========================================

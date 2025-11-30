@@ -45,3 +45,19 @@ override.tf.json
 terraform.rc
 
 # End of https://www.toptal.com/developers/gitignore/api/terraform
+
+# ========================================
+# Custom additions for this project
+# ========================================
+
+# Documentation privada (local only)
+docs/
+RESUMO-VALIDACAO-GITHUB.md
+
+# Ansible sensitive files
+ansible/inventory/production.yml
+ansible/group_vars/*/vault.yml
+ansible/.vault_password
+
+# Scripts de validação (podem conter outputs)
+validate-pre-commit.log

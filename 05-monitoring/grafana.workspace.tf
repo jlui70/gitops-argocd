@@ -9,3 +9,11 @@ resource "aws_grafana_workspace" "this" {
     subnet_ids         = data.aws_subnets.observability.ids
   }
 }
+
+# Criar API Key para Ansible
+resource "aws_grafana_workspace_api_key" "ansible" {
+  key_name        = "ansible-automation"
+  key_role        = "ADMIN"
+  seconds_to_live = 2592000  # 30 dias
+  workspace_id    = aws_grafana_workspace.this.id
+}

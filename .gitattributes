@@ -1,0 +1,20 @@
+# Git attributes for security and LF line endings
+
+# Terraform files
+*.tf text eol=lf
+*.tfvars text eol=lf
+*.hcl text eol=lf
+
+# Scripts
+*.sh text eol=lf
+
+# YAML files
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Markdown
+*.md text eol=lf
+
+# Prevent accidental commit of sensitive files
+*.tfstate filter=lfs diff=lfs merge=lfs -text
+*.tfvars filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,49 @@
+---
+- name: Configurar Amazon Managed Grafana
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    terraform_stack_path: "../../05-monitoring"
+  
+  tasks:
+    - name: Obter outputs do Terraform
+      shell: |
+        cd {{ terraform_stack_path }}
+        terraform output -raw grafana_workspace_url
+      register: grafana_url_raw
+      changed_when: false
+
+    - name: Obter Grafana API Key
+      shell: |
+        cd {{ terraform_stack_path }}
+        terraform output -raw grafana_api_key
+      register: grafana_api_key_raw
+      changed_when: false
+      no_log: true
+
+    - name: Obter Prometheus Endpoint
+      shell: |
+        cd {{ terraform_stack_path }}
+        terraform output -raw prometheus_workspace_endpoint
+      register: prometheus_endpoint_raw
+      changed_when: false
+
+    - name: Definir variáveis
+      set_fact:
+        grafana_url: "{{ grafana_url_raw.stdout }}"
+        grafana_api_key: "{{ grafana_api_key_raw.stdout }}"
+        prometheus_endpoint: "{{ prometheus_endpoint_raw.stdout }}"
+      no_log: true
+
+    - name: Validar outputs obtidos
+      assert:
+        that:
+          - grafana_url | length > 0
+          - grafana_api_key | length > 0
+          - prometheus_endpoint | length > 0
+        fail_msg: "Falha ao obter outputs do Terraform. Execute 'terraform apply' na Stack 05 primeiro."
+
+    - name: Executar role de configuração do Grafana
+      include_role:
+        name: grafana-config

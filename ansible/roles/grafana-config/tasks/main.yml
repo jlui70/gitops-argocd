@@ -1,0 +1,95 @@
+---
+- name: Validar variáveis necessárias
+  assert:
+    that:
+      - grafana_url is defined
+      - grafana_api_key is defined
+      - prometheus_endpoint is defined
+    fail_msg: "Variáveis grafana_url, grafana_api_key e prometheus_endpoint são obrigatórias"
+
+- name: Aguardar Grafana estar disponível
+  uri:
+    url: "{{ grafana_url | regex_replace('/$', '') }}/api/org"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ grafana_api_key }}"
+    status_code: 200
+    validate_certs: false
+  register: grafana_health
+  until: grafana_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Configurar Data Source Prometheus
+  uri:
+    url: "{{ grafana_url | regex_replace('/$', '') }}/api/datasources"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ grafana_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "Prometheus"
+      type: "prometheus"
+      url: "{{ prometheus_endpoint }}"
+      access: "proxy"
+      isDefault: true
+      jsonData:
+        httpMethod: "POST"
+        sigV4Auth: true
+        sigV4AuthType: "default"
+        sigV4Region: "{{ aws_region | default('us-east-1') }}"
+        timeInterval: "30s"
+      editable: false
+    status_code: [200, 409]
+  register: datasource_result
+  changed_when: datasource_result.status == 200
+
+- name: Obter UID do Data Source
+  uri:
+    url: "{{ grafana_url | regex_replace('/$', '') }}/api/datasources/name/Prometheus"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ grafana_api_key }}"
+    status_code: 200
+  register: datasource_info
+
+- name: Obter Dashboard Node Exporter Full do Grafana.com
+  uri:
+    url: "https://grafana.com/api/dashboards/1860/revisions/37/download"
+    method: GET
+    return_content: yes
+  register: dashboard_json
+
+- name: Importar Dashboard Node Exporter Full (ID 1860)
+  uri:
+    url: "{{ grafana_url | regex_replace('/$', '') }}/api/dashboards/db"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ grafana_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      dashboard: "{{ dashboard_json.json }}"
+      overwrite: true
+      inputs:
+        - name: "DS_PROMETHEUS"
+          type: "datasource"
+          pluginId: "prometheus"
+          value: "{{ datasource_info.json.uid }}"
+      folderId: 0
+    status_code: [200, 412]
+  register: dashboard_1860
+
+- name: Exibir resumo
+  debug:
+    msg: |
+      ========================================
+      ✅ GRAFANA CONFIGURADO COM SUCESSO
+      ========================================
+      
+      📊 Data Source: {{ datasource_info.json.name }}
+      📈 Dashboard 1860: {{ 'Importado' if dashboard_1860.status == 200 else 'Já existia' }}
+      🌐 URL: {{ grafana_url }}
+      
+      ========================================

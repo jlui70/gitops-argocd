@@ -13,7 +13,7 @@ echo "║     🗑️  DESTRUINDO INFRAESTRUTURA EKS - 6 STACKS               �
 echo "╚══════════════════════════════════════════════════════════════════╝"
 echo ""
 
-PROJECT_ROOT="/home/luiz7/Projects/eks-express-iac-nova-conta"
+PROJECT_ROOT="/home/luiz7/Projects/lab-eks-terraform-ansible"
 
 # Função para destruir uma stack
 destroy_stack() {
@@ -48,14 +48,23 @@ echo "🧹 PASSO 1: Deletando recursos Kubernetes (Ingress → ALB)"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 
-kubectl delete ingress eks-devopsproject-ingress --ignore-not-found=true || true
-kubectl delete service nginx --ignore-not-found=true || true
-kubectl delete deployment nginx --ignore-not-found=true || true
+# Verificar se kubectl consegue acessar o cluster
+if kubectl cluster-info &>/dev/null; then
+    echo "  ✅ Cluster acessível via kubectl"
+    
+    # Deletar recursos do namespace sample-app (se existir)
+    kubectl delete ingress eks-devopsproject-ingress -n sample-app --ignore-not-found=true 2>/dev/null || true
+    kubectl delete service nginx -n sample-app --ignore-not-found=true 2>/dev/null || true
+    kubectl delete deployment nginx -n sample-app --ignore-not-found=true 2>/dev/null || true
+    kubectl delete namespace sample-app --ignore-not-found=true 2>/dev/null || true
 
-echo "⏳ Aguardando ALB ser deletado pela AWS (30s)..."
-sleep 30
-
-echo "✅ Recursos Kubernetes deletados"
+    echo "  ⏳ Aguardando ALB ser deletado pela AWS (30s)..."
+    sleep 30
+    echo "  ✅ Recursos Kubernetes deletados"
+else
+    echo "  ⚠️  Cluster inacessível via kubectl (pode já ter sido destruído)"
+    echo "  ℹ️  Prosseguindo com destroy do Terraform (limpará ALB se existir)"
+fi
 echo ""
 
 # Ordem correta de destruição (REVERSA da criação: 05 → 00)
@@ -108,36 +117,63 @@ if [[ $destroy_backend =~ ^[Ss]$ ]]; then
     cd "$PROJECT_ROOT/00-backend"
     
     # Obter nome do bucket do terraform
-    BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null || echo "eks-devopsproject-state-files-620958830769")
+    BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null)
+    
+    if [ -z "$BUCKET_NAME" ]; then
+        echo "⚠️  Não foi possível obter nome do bucket. Tentando detectar..."
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
+        BUCKET_NAME="eks-devopsproject-state-files-${ACCOUNT_ID}"
+        echo "  → Bucket detectado: $BUCKET_NAME"
+    fi
     
     echo "🧹 Esvaziando bucket S3: $BUCKET_NAME"
     
-    # Deletar todas as versões de objetos
-    echo "  → Removendo versões de objetos..."
-    aws s3api delete-objects \
-        --bucket "$BUCKET_NAME" \
-        --delete "$(aws s3api list-object-versions \
+    # Verificar se bucket existe antes de tentar esvaziar
+    if aws s3 ls "s3://$BUCKET_NAME" --profile terraform &>/dev/null; then
+        echo "  → Removendo todos os objetos e versões do bucket..."
+        
+        # Método 1: Usar aws s3 rm com --recursive (mais simples e confiável)
+        aws s3 rm "s3://$BUCKET_NAME" --recursive --profile terraform 2>/dev/null || true
+        
+        # Método 2: Deletar versões antigas (versionamento habilitado)
+        echo "  → Verificando versões antigas..."
+        VERSIONS=$(aws s3api list-object-versions \
             --bucket "$BUCKET_NAME" \
             --profile terraform \
             --output json \
-            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)" \
-        --profile terraform &>/dev/null || true
-    
-    # Deletar todos os delete markers
-    echo "  → Removendo delete markers..."
-    aws s3api delete-objects \
-        --bucket "$BUCKET_NAME" \
-        --delete "$(aws s3api list-object-versions \
+            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
+        
+        if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "" ] && [ "$VERSIONS" != "{}" ]; then
+            echo "  → Removendo versões de objetos..."
+            aws s3api delete-objects \
+                --bucket "$BUCKET_NAME" \
+                --profile terraform \
+                --delete "$VERSIONS" 2>/dev/null || true
+        fi
+        
+        # Método 3: Deletar delete markers
+        echo "  → Verificando delete markers..."
+        MARKERS=$(aws s3api list-object-versions \
             --bucket "$BUCKET_NAME" \
             --profile terraform \
             --output json \
-            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)" \
-        --profile terraform &>/dev/null || true
-    
-    echo "  ✅ Bucket esvaziado"
+            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
+        
+        if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "" ] && [ "$MARKERS" != "{}" ]; then
+            echo "  → Removendo delete markers..."
+            aws s3api delete-objects \
+                --bucket "$BUCKET_NAME" \
+                --profile terraform \
+                --delete "$MARKERS" 2>/dev/null || true
+        fi
+        
+        echo "  ✅ Bucket esvaziado completamente"
+    else
+        echo "  ℹ️  Bucket não encontrado ou já foi deletado"
+    fi
     echo ""
     
-    # Agora destruir o backend
+    # Agora destruir o backend (com force_destroy = true, mesmo se houver objetos restantes)
     terraform destroy -auto-approve
     echo "✅ Stack 00 - Backend destruído"
 else

@@ -28,3 +28,9 @@ output "prometheus_scraper_id" {
   description = "ID do scraper do Prometheus"
   value       = aws_prometheus_scraper.this.id
 }
+
+output "grafana_api_key" {
+  value       = aws_grafana_workspace_api_key.ansible.key
+  sensitive   = true
+  description = "API Key do Grafana para automação Ansible"
+}
