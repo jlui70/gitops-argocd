@@ -9,7 +9,7 @@
 
 > Infraestrutura completa para provisionar um **Cluster Amazon EKS production-grade** utilizando **Terraform** e **Ansible** com stacks modulares para gerenciamento de recursos AWS.
 
-Este projeto apresenta uma proposta de implantação completa com Terraform + Ansible, a base do DevOps moderno. Dominar essas tecnologias pode elevar o seu nível profissional.
+Este projeto apresenta uma proposta de implantação completa com Terraform + Ansible, a base do DevOps moderno. Dominar essas tecnologias podem elevar o seu nível profissional.
 
 Este projeto inclui:
 - ✅ **EKS Cluster 1.32** com Node Groups gerenciados
@@ -26,16 +26,11 @@ Este projeto inclui:
 
 ### **📚 Documentação Ansible Disponível:**
 
-1. **[ANALISE-ANSIBLE-INTEGRACAO.md](./docs/ANALISE-ANSIBLE-INTEGRACAO.md)**  
-   - Análise técnica completa das 5 áreas onde Ansible agrega valor
-   - Práticas de mercado (Netflix, Spotify, Airbnb)
-   - ROI e estimativa de esforço
-
-2. **[GUIA-IMPLEMENTACAO-ANSIBLE.md](./docs/GUIA-IMPLEMENTACAO-ANSIBLE.md)**  
+**[GUIA-IMPLEMENTACAO-ANSIBLE.md](./docs/GUIA-IMPLEMENTACAO-ANSIBLE.md)**  
    - Código pronto para uso (roles, playbooks)
    - Setup passo a passo
    - Exemplos práticos
-
+   
 ### **🎯 Benefícios da Integração Ansible:**
 
 | Tarefa | Sem Ansible | Com Ansible | Economia |
