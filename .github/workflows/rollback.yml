@@ -30,7 +30,9 @@ jobs:
   rollback:
     name: Rollback to ${{ github.event.inputs.target_version }}
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: http://eks.devopsproject.com.br
     
     steps:
       - name: Checkout code
