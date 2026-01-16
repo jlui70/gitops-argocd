@@ -48,6 +48,23 @@ terraform.rc
 
 # ========================================
 # Custom additions for this project
+
+# Documentação interna e temporária
+docs/IAM-EKS-ACCESS-FIX.md
+docs/GUIA-DESTROY.md
+docs/MULTI-ENVIRONMENT-SETUP.md
+
+# Backups locais
+*backup*/
+*.tar.gz
+
+# Ansible logs
+ansible/*.txt
+ansible/ansible.log
+
+# Arquivos temporários
+*.tmp
+.DS_Store
 # ========================================
 
 # Documentation privada (local only)
