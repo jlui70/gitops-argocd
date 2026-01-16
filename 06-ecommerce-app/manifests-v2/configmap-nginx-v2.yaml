@@ -16,10 +16,10 @@ data:
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             
-            # Injeta banner v2 no HTML
+            # Injeta banner v2.1 no HTML (corrigido)
             sub_filter '</body>' '
-                <div style="position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; text-align: center; font-family: Arial, sans-serif; font-weight: bold; font-size: 18px; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    🚀 VERSION 2.0 - NEW FEATURES ENABLED! 🚀
+                <div style="position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px; text-align: center; font-family: Arial, sans-serif; font-weight: bold; font-size: 18px; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    ✅ VERSION 2.1 - BUGS FIXED & PERFORMANCE IMPROVED! ✅
                 </div>
                 <style>
                     body { padding-top: 60px !important; }
@@ -31,7 +31,7 @@ data:
         # Endpoint de versão
         location /api/version {
             default_type application/json;
-            return 200 '{"version": "2.0", "status": "active", "features": ["new-ui", "improved-performance", "enhanced-security"]}';
+            return 200 '{"version": "2.1", "status": "active", "features": ["new-ui", "improved-performance", "enhanced-security", "bug-fixes"]}';
         }
 
         # Health check
