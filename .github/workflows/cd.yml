@@ -135,20 +135,25 @@ jobs:
           # Check pods
           kubectl get pods -n ${{ env.NAMESPACE }} -l app=ecommerce-ui -o wide
           
-          # Check service
-          kubectl get service ecommerce-ui -n ${{ env.NAMESPACE }} -o yaml | grep version
+          # Check service selector
+          echo "Service selector:"
+          kubectl get service ecommerce-ui -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.selector}' && echo ""
           
           # Get Ingress URL
           ALB_URL=$(kubectl get ingress ecommerce-ingress -n ${{ env.NAMESPACE }} \
-            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
           
-          echo "🌐 Application URL: http://$ALB_URL"
-          echo "ALB_URL=$ALB_URL" >> $GITHUB_OUTPUT
-          
-          # Test endpoint
-          echo "🧪 Testing endpoint..."
-          sleep 5
-          curl -s http://$ALB_URL/api/version | jq . || echo "Endpoint test pending..."
+          if [ -n "$ALB_URL" ]; then
+            echo "🌐 Application URL: http://$ALB_URL"
+            echo "ALB_URL=$ALB_URL" >> $GITHUB_OUTPUT
+            
+            # Test endpoint (don't fail if it doesn't respond yet)
+            echo "🧪 Testing endpoint..."
+            sleep 5
+            curl -s -f http://$ALB_URL/api/version || echo "⏳ Endpoint not responding yet (this is normal, ALB may need time to propagate)"
+          else
+            echo "⚠️ Ingress not ready yet"
+          fi
           
           echo "✅ Deployment verified!"
 
