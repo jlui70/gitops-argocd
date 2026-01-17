@@ -157,38 +157,6 @@ curl http://eks.devopsproject.com.br
 
 ---
 
-## 📋 Estrutura do Projeto
-
-```
-gitops/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml           # CI Pipeline (validação + build)
-│       ├── cd.yml           # CD Pipeline (deploy Blue/Green)
-│       └── rollback.yml     # Rollback automático
-├── 00-backend/              # Terraform: S3 + DynamoDB
-├── 01-networking/           # Terraform: VPC + Networking
-├── 02-eks-cluster/          # Terraform: EKS + Addons
-├── 06-ecommerce-app/        # Aplicação demo
-│   ├── manifests/           # Kubernetes manifests v1
-│   ├── manifests-v2/        # Kubernetes manifests v2
-│   ├── deploy.sh            # Script deploy manual
-│   └── deploy-v2.sh         # Script deploy v2 (Blue/Green)
-├── docs/
-│   ├── Configuração-inicial.md       # Setup inicial
-│   ├── CI-CD-PIPELINE.md             # Guia completo CI/CD
-│   ├── GUIA-APRESENTACAO-CICD.md     # Roteiro demonstração
-│   └── CONCEITOS-AVANCADOS-CICD.md   # TBD, strategies, etc
-├── scripts/
-│   ├── rebuild-all.sh       # Deploy completo automatizado
-│   ├── destroy-all.sh       # Destroy tudo (limpar custos)
-│   ├── setup-ecr.sh         # Criar repositórios ECR
-│   └── backup-before-destroy.sh  # Backup completo
-└── README.md
-```
-
----
-
 ## 🔄 Workflows GitHub Actions
 
 ### CI - Build and Test
@@ -353,55 +321,8 @@ Rollback (<30s):
 
 - 📖 **[Configuração Inicial](./docs/Configuração-inicial.md)** - Setup AWS, Terraform, kubectl
 - 🚀 **[CI/CD Pipeline](./docs/CI-CD-PIPELINE.md)** - Guia completo GitHub Actions
-- 🎬 **[Guia de Apresentação](./docs/GUIA-APRESENTACAO-CICD.md)** - Roteiro demonstração
-- 🎓 **[Conceitos Avançados](./docs/CONCEITOS-AVANCADOS-CICD.md)** - TBD, Strategies, Security
-
-### Scripts Úteis
-
-```bash
-# Deploy completo (20-25 min)
-./scripts/rebuild-all.sh
-
-# Destroy tudo (10-15 min)
-./scripts/destroy-all.sh
-
-# Criar ECR repositories
-./scripts/setup-ecr.sh
-
-# Backup antes de destroy
-./scripts/backup-before-destroy.sh
-```
 
 ---
-
-## 🧪 Demonstração
-
-### Simular Deploy de Nova Versão
-
-1. **Alterar banner** (v2.1 → v2.2)
-   ```bash
-   vim 06-ecommerce-app/manifests-v2/configmap-nginx-v2.yaml
-   # Alterar: VERSION 2.1 → VERSION 2.2
-   # Alterar cor: verde → azul
-   ```
-
-2. **Commit e push**
-   ```bash
-   git add .
-   git commit -m "feat: release v2.2 with new features"
-   git push
-   ```
-
-3. **CI roda automaticamente** (~2 min)
-
-4. **Aprovar CD manualmente**
-   - GitHub Actions → CD - Deploy to EKS → Run workflow
-
-5. **Validar no navegador**
-   ```bash
-   curl http://eks.devopsproject.com.br
-   # Banner azul: VERSION 2.2
-   ```
 
 ### Testar Rollback
 
@@ -417,78 +338,6 @@ kubectl patch service ecommerce-ui -n ecommerce \
 ```
 
 **Tempo de rollback:** < 30 segundos
-
----
-
-## 🔧 Troubleshooting
-
-### CI Pipeline falha no build
-
-**Erro:** `Docker Hub timeout`
-
-**Solução:** Pipeline já configurada para usar ECR primeiro
-```yaml
-# Verifica se imagem existe no ECR antes de puxar do Docker Hub
-aws ecr describe-images --repository-name ecommerce/ecommerce-ui
-```
-
-### CD Pipeline falha com "Unauthorized"
-
-**Erro:** `User github-actions-eks is not authorized`
-
-**Solução:** Verificar IAM user e aws-auth ConfigMap
-```bash
-# Ver IAM policies
-aws iam list-attached-user-policies --user-name github-actions-eks
-
-# Ver RBAC Kubernetes
-kubectl describe configmap aws-auth -n kube-system
-```
-
-### ALB não é criado
-
-**Erro:** `Ingress ADDRESS empty`
-
-**Solução:** Verificar ALB Controller
-```bash
-# Ver logs ALB Controller
-kubectl logs -n kube-system deployment/aws-load-balancer-controller
-
-# Verificar service account
-kubectl get serviceaccount aws-load-balancer-controller -n kube-system
-```
-
-### Pods em CrashLoopBackOff
-
-**Erro:** `Pod keeps restarting`
-
-**Solução:** Ver logs
-```bash
-kubectl logs -n ecommerce deployment/ecommerce-ui-v2
-kubectl describe pod -n ecommerce -l version=v2
-```
-
----
-
-## 🎯 Roadmap
-
-### Implementado ✅
-- [x] Infraestrutura Terraform (3 stacks)
-- [x] CI Pipeline (GitHub Actions)
-- [x] CD Pipeline (Blue/Green)
-- [x] Rollback automático
-- [x] ECR integration
-- [x] Segurança (IAM + RBAC)
-- [x] Documentação completa
-
-### Próximos Passos 🚀
-- [ ] Ambiente Staging
-- [ ] Canary Deployment
-- [ ] ArgoCD (GitOps pull-based)
-- [ ] Monitoring (Prometheus + Grafana)
-- [ ] Service Mesh (Istio)
-- [ ] Testes automatizados (E2E, Integration)
-- [ ] Security scans (Snyk, Trivy)
 
 ---
 
