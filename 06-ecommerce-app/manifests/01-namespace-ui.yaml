@@ -29,17 +29,17 @@ spec:
         - containerPort: 4000
         env:
         - name: REACT_APP_PROFILE_API_HOST
-          value: "http://profile-management:3003"
+          value: "http://profile-management"
         - name: REACT_APP_PRODUCT_API_HOST
-          value: "http://product-catalog:3001"
+          value: "http://product-catalog"
         - name: REACT_APP_INVENTORY_API_HOST
-          value: "http://product-inventory:3002"
+          value: "http://product-inventory"
         - name: REACT_APP_ORDER_API_HOST
-          value: "http://order-management:9090"
+          value: "http://order-management"
         - name: REACT_APP_SHIPPING_API_HOST
-          value: "http://shipping-and-handling:8080"
+          value: "http://shipping-and-handling"
         - name: REACT_APP_CONTACT_API_HOST
-          value: "http://contact-support-team:8000"
+          value: "http://contact-support-team"
         resources:
           requests:
             memory: "256Mi"
