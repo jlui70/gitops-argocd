@@ -32,7 +32,7 @@ echo "🛒 Fazendo deploy dos microserviços e-commerce..."
 
 # Aplicar todos os manifestos
 echo "   📦 Aplicando manifests..."
-kubectl apply -f manifests/ --recursive
+kubectl apply -f manifests/
 
 # Aguardar namespace ser criado
 echo "   ⏳ Aguardando namespace ecommerce ser criado..."
