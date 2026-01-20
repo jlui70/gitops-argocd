@@ -38,18 +38,14 @@ kubectl apply -f manifests/ --recursive
 echo "   ⏳ Aguardando namespace ecommerce ser criado..."
 kubectl wait --for=condition=ready namespace/ecommerce --timeout=30s 2>/dev/null || echo "Namespace já existe"
 
-# Aguardar MongoDB estar pronto
-echo "   📊 Aguardando MongoDB inicializar..."
-kubectl wait --for=condition=available deployment/mongodb -n ecommerce --timeout=300s
-
 # Aguardar todos os microserviços estarem prontos
 echo "   🔧 Aguardando microserviços iniciarem..."
 kubectl wait --for=condition=available deployment/product-catalog -n ecommerce --timeout=300s
 kubectl wait --for=condition=available deployment/order-management -n ecommerce --timeout=300s
 kubectl wait --for=condition=available deployment/product-inventory -n ecommerce --timeout=300s
 kubectl wait --for=condition=available deployment/profile-management -n ecommerce --timeout=300s
-kubectl wait --for=condition=available deployment/shipping-handling -n ecommerce --timeout=300s
-kubectl wait --for=condition=available deployment/contact-support -n ecommerce --timeout=300s
+kubectl wait --for=condition=available deployment/shipping-and-handling -n ecommerce --timeout=300s
+kubectl wait --for=condition=available deployment/contact-support-team -n ecommerce --timeout=300s
 
 # Aguardar frontend estar pronto
 echo "   🎨 Aguardando frontend UI inicializar..."
@@ -99,9 +95,6 @@ echo "  🎯 DNS Personalizado: http://eks.devopsproject.com.br"
 if [[ -n "$INGRESS_ADDRESS" ]]; then
     echo "  🔧 ALB Direto: http://$INGRESS_ADDRESS"
 fi
-echo ""
-echo "📊 Monitoramento:"
-echo "  📈 Grafana: https://g-b774166fa1.grafana-workspace.us-east-1.amazonaws.com/"
 echo ""
 echo "🔍 Comandos Úteis:"
 echo "  kubectl get all -n ecommerce"
