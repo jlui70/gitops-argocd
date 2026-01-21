@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-ui-v2
+  namespace: ecommerce
+  labels:
+    app: ecommerce-ui
+    version: v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-ui
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: ecommerce-ui
+        version: v2
+    spec:
+      containers:
+      - name: nginx-proxy
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 4000
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-v2-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-ui-v2
+  namespace: ecommerce
+  labels:
+    app: ecommerce-ui
+    version: v2
+spec:
+  type: ClusterIP
+  ports:
+  - port: 4000
+    targetPort: 4000
+    protocol: TCP
+    name: http
+  selector:
+    app: ecommerce-ui
+    version: v2

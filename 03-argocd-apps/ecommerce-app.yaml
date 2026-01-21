@@ -10,22 +10,22 @@ metadata:
 spec:
   project: default
   
-  # Source: Git Repository (NOVO REPO)
+  # Source: Git Repository
   source:
     repoURL: https://github.com/jlui70/gitops-argocd.git
     targetRevision: main
-    path: 06-ecommerce-app/argocd/overlays/v2 # Inicia com v1
+    path: 06-ecommerce-app/argocd/overlays/production  # ✅ Production overlay (FIXED PATH)
   
   # Destination: EKS Cluster
   destination:
     server: https://kubernetes.default.svc
     namespace: ecommerce
   
-  # Sync Policy: Automático
+  # Sync Policy: Automatic
   syncPolicy:
     automated:
-      prune: true      # Remove recursos deletados do Git
-      selfHeal: true   # Auto-corrige drift
+      prune: true      # Remove deleted resources
+      selfHeal: true   # Auto-correct drift
       allowEmpty: false
     
     syncOptions:
