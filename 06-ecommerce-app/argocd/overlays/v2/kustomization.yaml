@@ -3,17 +3,30 @@ kind: Kustomization
 
 namespace: ecommerce
 
-# Não usar base que tem o deployment original
 resources:
-  - ../../base/00-namespace.yaml
-  - ../../base/product-catalog.yaml
-  - ../../base/order-management.yaml
-  - ../../base/product-inventory.yaml
-  - ../../base/profile-management.yaml
-  - ../../base/shipping-and-handling.yaml
-  - ../../base/team-contact-support.yaml
-  - ../../base/ingress.yaml
-  - service-ecommerce-ui.yaml
+  - ../../base
   - ecommerce-ui-backend.yaml
   - ecommerce-ui-v2-proxy.yaml
   - configmap-nginx-v2.yaml
+
+# Remove o deployment ecommerce-ui original  
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ecommerce-ui
+        namespace: ecommerce
+      $patch: delete
+    target:
+      kind: Deployment
+      name: ecommerce-ui
+  - patch: |-
+      - op: replace
+        path: /spec/selector
+        value:
+          app: ecommerce-ui
+          version: v2
+    target:
+      kind: Service
+      name: ecommerce-ui
