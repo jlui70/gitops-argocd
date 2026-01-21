@@ -3,33 +3,17 @@ kind: Kustomization
 
 namespace: ecommerce
 
-bases:
-  - ../../base
-
-# Adicionar recursos específicos da v2
+# Não usar base que tem o deployment original
 resources:
+  - ../../base/00-namespace.yaml
+  - ../../base/product-catalog.yaml
+  - ../../base/order-management.yaml
+  - ../../base/product-inventory.yaml
+  - ../../base/profile-management.yaml
+  - ../../base/shipping-and-handling.yaml
+  - ../../base/team-contact-support.yaml
+  - ../../base/ingress.yaml
+  - service-ecommerce-ui.yaml
   - ecommerce-ui-backend.yaml
   - ecommerce-ui-v2-proxy.yaml
   - configmap-nginx-v2.yaml
-
-# Labels específicos da v2
-commonLabels:
-  version: v2
-  environment: production
-
-# Remover deployment ecommerce-ui original (usar apenas v2)
-patches:
-  - target:
-      kind: Deployment
-      name: ecommerce-ui
-    patch: |-
-      $patch: delete
-  - target:
-      kind: Service
-      name: ecommerce-ui
-    patch: |-
-      - op: replace
-        path: /spec/selector
-        value:
-          app: ecommerce-ui
-          version: v2
