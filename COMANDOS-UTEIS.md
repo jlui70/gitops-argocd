@@ -245,6 +245,9 @@ kubectl get secrets -n argocd
 ## 🔄 Git Operations
 
 ```bash
+# Navegar para manifestos
+cd ~/lab-argo/gitops-argocd/06-ecommerce-app/argocd/overlays/production
+
 # Status
 git status
 

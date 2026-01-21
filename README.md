@@ -12,32 +12,31 @@
 
 ---
 
-## 📦 Repositórios do Projeto
+## 📦 Repositório do Projeto
 
-Este projeto usa **dois repositórios** separados (GitOps best practice):
+Tudo em **um único repositório** para facilitar:
 
-### 🏗️ Infraestrutura (você está aqui)
 ```
-📁 gitops-eks (este repo)
-   └─ Terraform: VPC, EKS Cluster, ArgoCD via Helm
-   └─ Provisioning: Cria infraestrutura AWS
-   └─ Imutável: Não muda depois de criado
+📁 gitops-argocd (repositório único)
+   ├─ 00-backend/          → Terraform: S3 + DynamoDB state
+   ├─ 01-networking/       → Terraform: VPC, Subnets, NAT
+   ├─ 02-eks-cluster/      → Terraform: EKS + ArgoCD via Helm
+   ├─ 03-argocd-apps/      → Application CRD (conecta Git→Cluster)
+   └─ 06-ecommerce-app/
+       └─ argocd/
+           ├─ base/         → Manifestos base K8s
+           └─ overlays/
+               └─ production/  → Kustomize v1↔v2 (editar aqui)
 ```
-🔗 **https://github.com/jlui70/gitops-eks**
 
-### 📱 Manifestos Kubernetes (ArgoCD monitora aqui)
-```
-📁 gitops-argocd (repo separado)
-   └─ Kustomize: Base + Overlays (v1/v2)
-   └─ Application: CRD do ArgoCD
-   └─ Muda frequentemente: A cada deploy/rollback
-```
 🔗 **https://github.com/jlui70/gitops-argocd**
 
-**Por que separar?**
-- ArgoCD monitora apenas manifestos (evita re-deploy quando Terraform muda)
-- Infraestrutura é provisionada uma vez (Terraform)
-- Aplicação muda sempre (GitOps via ArgoCD)
+**Estrutura completa:**
+- ✅ **Infraestrutura Terraform** (3 stacks)
+- ✅ **Manifestos Kubernetes** (Kustomize base + overlays)
+- ✅ **ArgoCD Application** (CRD que conecta tudo)
+- ✅ **Scripts auxiliares** (deploy, rollback, validação)
+- ✅ **Documentação completa**
 
 ---
 
@@ -47,7 +46,7 @@ Este projeto usa **dois repositórios** separados (GitOps best practice):
 
 📘 **[QUICK-START.md](./QUICK-START.md)** - Setup completo em 30 minutos
 
-Cobre desde o `git clone` até deploy v1 → v2 → rollback funcionando.
+Cobre desde o `git clone` (um único repositório) até deploy v1 → v2 → rollback funcionando.
 
 ### 📚 Documentação Completa
 
@@ -58,6 +57,7 @@ Cobre desde o `git clone` até deploy v1 → v2 → rollback funcionando.
 - 📝 **[RESUMO-SOLUCAO-FINAL.md](./RESUMO-SOLUCAO-FINAL.md)** - Resumo da solução
 - 🎬 **[ROTEIRO-APRESENTACAO.md](./ROTEIRO-APRESENTACAO.md)** - Roteiro de apresentação
 - 🔧 **[SOLUTION-ARGOCD-AUTOSYNC.md](./SOLUTION-ARGOCD-AUTOSYNC.md)** - Detalhes técnicos
+- 🛠️ **[scripts/rebuild-all.sh](./scripts/rebuild-all.sh)** - Deploy automatizado completo
 
 ---
 
@@ -82,14 +82,15 @@ Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizad
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Developer                                                   │
-│  1. Edit: overlays/production/kustomization.yaml (v1→v2)    │
-│  2. git commit -am "Deploy v2"                              │
-│  3. git push                                                │
+│  1. cd gitops-argocd/06-ecommerce-app/argocd/overlays/...  │
+│  2. Edit: kustomization.yaml (v1→v2)                        │
+│  3. git commit -am "Deploy v2"                              │
+│  4. git push                                                │
 └────────────────┬────────────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ GitHub Repository                                           │
+│ GitHub Repository (único)                                   │
 │  https://github.com/jlui70/gitops-argocd                    │
 │  Branch: main                                               │
 │  Path: 06-ecommerce-app/argocd/overlays/production/        │
@@ -691,17 +692,20 @@ Este projeto demonstra proficiência em:
 
 ## ❓ FAQ - Perguntas Frequentes
 
-### Por que dois repositórios?
+### Por que tudo em um repositório?
 
-**Separação de responsabilidades:**
-- **gitops-eks** (este repo): Infraestrutura Terraform (imutável)
-- **gitops-argocd**: Manifestos Kubernetes (muda frequentemente)
+**Simplicidade e organização:**
+- **Infraestrutura Terraform** (00-backend, 01-networking, 02-eks-cluster): Provisiona AWS
+- **Manifestos Kubernetes** (06-ecommerce-app/argocd): ArgoCD monitora esta pasta
+- **Application CRD** (03-argocd-apps): Conecta Git → Cluster
 
-ArgoCD monitora apenas o repo de manifestos, evitando re-deploys desnecessários quando Terraform muda.
+Tudo junto facilita clone, versionamento e compartilhamento do projeto completo.
 
-### Posso usar um repositório só?
+### ArgoCD não vai re-deployar quando eu alterar Terraform?
 
-Sim, mas não é recomendado. GitOps puro separa infraestrutura (provisioning) de aplicação (configuration).
+Não! ArgoCD monitora **apenas** o path específico: `06-ecommerce-app/argocd/overlays/production/`
+
+Mudanças em Terraform não triggam sync no ArgoCD.
 
 ### Como funciona o auto-sync exatamente?
 

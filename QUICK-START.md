@@ -2,7 +2,7 @@
 
 ## ⚡ Resumo Rápido
 
-1. **Clonar repositórios** (2 repos)
+1. **Clonar repositório** (único repo com tudo)
 2. **Configurar AWS CLI** profile
 3. **Deploy Terraform** (3 stacks: backend → networking → eks+argocd)
 4. **Aplicar Application ArgoCD** (conecta Git → Cluster)
@@ -27,26 +27,33 @@ git --version        # Git configurado
 
 ---
 
-## 1️⃣ Clonar Repositórios (2 minutos)
+## 1️⃣ Clonar Repositório (1 minuto)
 
 ```bash
 # Criar diretório de trabalho
 mkdir -p ~/lab-argo
 cd ~/lab-argo
 
-# Clonar infraestrutura Terraform
-git clone https://github.com/jlui70/gitops-eks.git
-cd gitops-eks
-
-# Clonar manifestos Kubernetes (em outra pasta)
-cd ~/lab-argo
+# Clonar repositório único (infraestrutura + manifestos)
 git clone https://github.com/jlui70/gitops-argocd.git
 cd gitops-argocd
 ```
 
-**Por que 2 repos?**
-- `gitops-eks`: Infraestrutura (imutável)
-- `gitops-argocd`: Manifestos (muda sempre via GitOps)
+**Estrutura do repositório:**
+```
+gitops-argocd/
+├── 00-backend/          → Terraform: S3 + DynamoDB state
+├── 01-networking/       → Terraform: VPC, Subnets, NAT
+├── 02-eks-cluster/      → Terraform: EKS + ArgoCD via Helm
+├── 03-argocd-apps/      → Application CRD
+├── 06-ecommerce-app/
+│   └── argocd/
+│       ├── base/        → Manifestos base K8s
+│       └── overlays/
+│           └── production/  → Kustomize v1↔v2
+├── scripts/             → Scripts auxiliares
+└── docs/                → Documentação
+```
 
 ---
 
@@ -80,7 +87,7 @@ aws sts get-caller-identity --profile devopsproject
 ### Stack 1: Backend (30 segundos)
 
 ```bash
-cd ~/lab-argo/gitops-eks/00-backend
+cd ~/lab-argo/gitops-argocd/00-backend
 terraform init
 terraform apply -auto-approve
 ```
@@ -173,7 +180,7 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 ---
 
-## 5️⃣ Aplicar Application ArgoCD (1 minuto)
+#### 6️⃣ Aplicar Application ArgoCD (conecta Git → Cluster)
 
 ```bash
 # Aplicar CRD do ArgoCD
