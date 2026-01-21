@@ -122,16 +122,6 @@ AWS_ACCOUNT_ID: 794038226274
 
 ### 4. Deploy da Aplicação
 
-**Opção A: Via GitHub Actions (GitOps)**
-1. Acesse: `github.com/SEU-USUARIO/gitops-eks/actions`
-2. Selecione workflow: `CD - Deploy to EKS`
-3. Click: `Run workflow`
-4. Configure:
-   - environment: `production`
-   - strategy: `blue-green`
-5. Click: `Run workflow`
-
-**Opção B: Manual**
 ```bash
 cd 06-ecommerce-app
 ./deploy.sh
@@ -148,8 +138,10 @@ kubectl get ingress -n ecommerce
 
 # Acessar aplicação
 # Via ALB direto
-kubectl get ingress ecommerce-ingress -n ecommerce \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+ALB_URL=$(kubectl get ingress ecommerce-ingress -n ecommerce \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+echo "http://$ALB_URL"
 
 # Via domínio (se configurado)
 curl http://eks.devopsproject.com.br
@@ -321,23 +313,6 @@ Rollback (<30s):
 
 - 📖 **[Configuração Inicial](./docs/Configuração-inicial.md)** - Setup AWS, Terraform, kubectl
 - 🚀 **[CI/CD Pipeline](./docs/CI-CD-PIPELINE.md)** - Guia completo GitHub Actions
-
----
-
-### Testar Rollback
-
-```bash
-# Via GitHub Actions
-Actions → Rollback Deployment → Run workflow
-  reason: "Testing rollback"
-  target_version: v2.1
-
-# Ou via kubectl (emergência)
-kubectl patch service ecommerce-ui -n ecommerce \
-  -p '{"spec":{"selector":{"version":"v1"}}}'
-```
-
-**Tempo de rollback:** < 30 segundos
 
 ---
 

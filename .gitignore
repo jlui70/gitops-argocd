@@ -81,3 +81,7 @@ ansible/.vault_password
 
 # Scripts de validação (podem conter outputs)
 validate-pre-commit.log05-monitoring/grafana-api-key.txt
+
+# Arquivos locais de desenvolvimento
+.local-only/
+.cleanup-summary.txt
