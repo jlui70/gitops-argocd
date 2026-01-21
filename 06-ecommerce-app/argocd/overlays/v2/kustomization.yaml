@@ -17,12 +17,19 @@ commonLabels:
   version: v2
   environment: production
 
-# Patch para mudar Service selector para v2
+# Remover deployment ecommerce-ui original (usar apenas v2)
 patches:
+  - target:
+      kind: Deployment
+      name: ecommerce-ui
+    patch: |-
+      $patch: delete
   - target:
       kind: Service
       name: ecommerce-ui
     patch: |-
       - op: replace
-        path: /spec/selector/version
-        value: v2
+        path: /spec/selector
+        value:
+          app: ecommerce-ui
+          version: v2
