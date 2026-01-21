@@ -70,79 +70,6 @@ kubectl get configmap aws-auth -n kube-system -o yaml | grep -q "github-actions-
 
 echo ""
 
-# Criar recursos Kubernetes de teste (opcional)
-echo "═══════════════════════════════════════════════════════════════════"
-echo "🧪 Recursos de Teste (Opcional)"
-echo "═══════════════════════════════════════════════════════════════════"
-echo ""
-read -p "Criar deployment NGINX de teste? (S/n): " create_test
-
-if [[ ! $create_test =~ ^[Nn]$ ]]; then
-    echo "🌐 Criando deployment NGINX + Ingress..."
-    
-    # Criar deployment e service
-    kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:latest
-        ports:
-        - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx
-spec:
-  type: ClusterIP
-  ports:
-  - port: 80
-    targetPort: 80
-  selector:
-    app: nginx
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: eks-devopsproject-ingress
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-spec:
-  ingressClassName: alb
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: nginx
-            port:
-              number: 80
-EOF
-    
-    echo "⏳ Aguardando ALB ser provisionado (90s)..."
-    sleep 90
-    echo "✅ Recursos de teste criados"
-else
-    echo "⏸️  Pulando criação de recursos de teste"
-fi
-echo ""
-
 echo "╔══════════════════════════════════════════════════════════════════╗"
 echo "║           ✅ INFRAESTRUTURA COMPLETA RECRIADA!                   ║"
 echo "╚══════════════════════════════════════════════════════════════════╝"
@@ -151,24 +78,11 @@ echo "📊 Stacks aplicadas (3 stacks):"
 echo "  ✅ Stack 00: Backend (S3 + DynamoDB para Terraform State)"
 echo "  ✅ Stack 01: Networking (VPC + Subnets + NAT Gateways)"
 echo "  ✅ Stack 02: EKS Cluster (Kubernetes + ALB Controller + External DNS)"
-if [[ ! $create_test =~ ^[Nn]$ ]]; then
-echo "  ✅ Recursos de teste (NGINX + Ingress + ALB)"
-fi
 echo ""
 echo "🔍 Verificar recursos:"
 echo "  kubectl get nodes"
 echo "  kubectl get pods -A"
-echo "  kubectl get ingress"
 echo ""
-if [[ ! $create_test =~ ^[Nn]$ ]]; then
-echo "🌐 Obter URL do ALB:"
-echo "  kubectl get ingress eks-devopsproject-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
-echo ""
-echo "🧪 Testar aplicação:"
-echo "  ALB_URL=\$(kubectl get ingress eks-devopsproject-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
-echo "  curl http://\$ALB_URL"
-echo ""
-fi
 echo "🛒 Deploy Aplicação E-commerce:"
 echo "  cd 06-ecommerce-app"
 echo "  ./deploy.sh"
