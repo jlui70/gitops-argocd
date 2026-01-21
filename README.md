@@ -49,6 +49,16 @@ Este projeto usa **dois repositórios** separados (GitOps best practice):
 
 Cobre desde o `git clone` até deploy v1 → v2 → rollback funcionando.
 
+### 📚 Documentação Completa
+
+- 🚀 **[QUICK-START.md](./QUICK-START.md)** - Setup do zero em 30 min
+- ✅ **[VALIDACAO.md](./VALIDACAO.md)** - Checklist de validação pré-testes
+- 🎯 **[COMANDOS-UTEIS.md](./COMANDOS-UTEIS.md)** - Referência rápida de comandos
+- 📖 **[FLUXO-DEMO-GITOPS.md](./FLUXO-DEMO-GITOPS.md)** - Fluxo completo do demo
+- 📝 **[RESUMO-SOLUCAO-FINAL.md](./RESUMO-SOLUCAO-FINAL.md)** - Resumo da solução
+- 🎬 **[ROTEIRO-APRESENTACAO.md](./ROTEIRO-APRESENTACAO.md)** - Roteiro de apresentação
+- 🔧 **[SOLUTION-ARGOCD-AUTOSYNC.md](./SOLUTION-ARGOCD-AUTOSYNC.md)** - Detalhes técnicos
+
 ---
 
 ## 🎯 Visão Geral
