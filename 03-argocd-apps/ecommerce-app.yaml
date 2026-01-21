@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: https://github.com/jlui70/gitops-argocd.git
     targetRevision: main
-    path: 06-ecommerce-app/argocd/overlays/v1  # Inicia com v1
+    path: 06-ecommerce-app/argocd/overlays/v22 # Inicia com v1
   
   # Destination: EKS Cluster
   destination:

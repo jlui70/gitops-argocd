@@ -10,6 +10,14 @@ echo ""
 
 cd /home/luiz7/lab-argo/gitops-eks
 
+# Check if already on v2
+CURRENT=$(grep "path:" 03-argocd-apps/ecommerce-app.yaml | grep -o "v[12]")
+if [ "$CURRENT" == "v2" ]; then
+    echo "⚠️  Already on v2!"
+    echo "   Run './scripts/demo/0-reset-to-v1.sh' first to reset."
+    exit 1
+fi
+
 echo "1️⃣  Updating ArgoCD Application manifest..."
 sed -i 's|overlays/v1|overlays/v2|' 03-argocd-apps/ecommerce-app.yaml
 
