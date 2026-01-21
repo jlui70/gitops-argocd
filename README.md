@@ -41,6 +41,16 @@ Este projeto usa **dois repositórios** separados (GitOps best practice):
 
 ---
 
+## ⚡ TL;DR - Quick Start
+
+**Quer começar rápido?** Siga o guia passo-a-passo:
+
+📘 **[QUICK-START.md](./QUICK-START.md)** - Setup completo em 30 minutos
+
+Cobre desde o `git clone` até deploy v1 → v2 → rollback funcionando.
+
+---
+
 ## 🎯 Visão Geral
 
 Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizado em Kubernetes (Amazon EKS) utilizando **ArgoCD** e as melhores práticas de DevOps moderno:
