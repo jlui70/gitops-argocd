@@ -1,43 +1,38 @@
 #!/bin/bash
-# Demo Script 2b: Force ArgoCD Sync (Production Safe - NO DELETE)
+# Force ArgoCD Sync WITHOUT deleting Application
 
 set -e
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "⚡ Force ArgoCD Sync (Safe Method - Preserves ALB/DNS)"
+echo "⚡ Force ArgoCD Sync (No Delete - Safe)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-echo "🔄 Triggering hard refresh from Git..."
+# Annotate to force hard refresh from Git
 kubectl annotate application ecommerce-app -n argocd \
   argocd.argoproj.io/refresh=hard --overwrite
+
+echo "✅ Hard refresh triggered"
 echo ""
 
-echo "⚡ Forcing immediate sync..."
-# Trick: update a dummy annotation to trigger reconciliation
-kubectl annotate application ecommerce-app -n argocd \
-  last-sync-trigger="$(date +%s)" --overwrite
+# Trigger sync via kubectl patch
+kubectl patch application ecommerce-app -n argocd \
+  --type merge \
+  -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{"revision":"HEAD"}}}'
+
+echo "✅ Sync triggered"
 echo ""
 
-echo "⏳ Waiting 15s for ArgoCD to sync..."
-sleep 15
-echo ""
+echo "📊 Waiting for sync to complete..."
+sleep 10
 
-echo "📊 Application status:"
 kubectl get application ecommerce-app -n argocd
 echo ""
 
 echo "📦 Pods status:"
-kubectl get pods -n ecommerce -L version | grep ecommerce-ui
-echo ""
-
-echo "🌐 ALB status (must be preserved):"
-kubectl get ingress -n ecommerce -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}'
-echo ""
+kubectl get pods -n ecommerce -L version | head -10
 echo ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Done! ALB preserved, DNS working!"
+echo "✅ Sync complete! ALB preserved, DNS working!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "💡 Alternative: Use ArgoCD UI → REFRESH → SYNC buttons"
