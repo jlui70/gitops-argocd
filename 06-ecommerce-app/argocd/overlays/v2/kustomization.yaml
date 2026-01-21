@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ecommerce
+
+bases:
+  - ../../base
+
+# Adicionar recursos específicos da v2
+resources:
+  - ecommerce-ui-backend.yaml
+  - ecommerce-ui-v2-proxy.yaml
+  - configmap-nginx-v2.yaml
+
+# Labels específicos da v2
+commonLabels:
+  version: v2
+  environment: production
+
+# Patch para mudar Service selector para v2
+patches:
+  - target:
+      kind: Service
+      name: ecommerce-ui
+    patch: |-
+      - op: replace
+        path: /spec/selector/version
+        value: v2

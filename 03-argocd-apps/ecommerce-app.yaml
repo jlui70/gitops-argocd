@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  # Source: Git Repository (NOVO REPO)
+  source:
+    repoURL: https://github.com/jlui70/gitops-argocd.git
+    targetRevision: main
+    path: 06-ecommerce-app/argocd/overlays/v1  # Inicia com v1
+  
+  # Destination: EKS Cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce
+  
+  # Sync Policy: Automático
+  syncPolicy:
+    automated:
+      prune: true      # Remove recursos deletados do Git
+      selfHeal: true   # Auto-corrige drift
+      allowEmpty: false
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+    
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # Health Check
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Ignore HPA changes
