@@ -156,7 +156,7 @@ echo "🌐 Aplicação disponível em: http://$ALB_URL"
 Você pode escolher qualquer um dos métodos abaixo para alternar entre v1 e v2:
 
 <details>
-<summary><strong>🎯 OPÇÃO 1: Script Helper (Mais Fácil)</strong></summary>
+<summary><strong>OPÇÃO 1: Script Helper (Mais Fácil)</strong></summary>
 
 ```bash
 cd gitops-argocd/06-ecommerce-app/argocd/overlays/production
@@ -172,7 +172,7 @@ cd gitops-argocd/06-ecommerce-app/argocd/overlays/production
 </details>
 
 <details>
-<summary><strong>📁 OPÇÃO 2: Copiar Template (Simples)</strong></summary>
+<summary><strong>OPÇÃO 2: Copiar Template (Simples)</strong></summary>
 
 ```bash
 cd gitops-argocd/06-ecommerce-app/argocd/overlays/production
