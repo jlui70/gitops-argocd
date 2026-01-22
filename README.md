@@ -200,6 +200,7 @@ Descomentar/comentar seções:
 - **Patches:** Service selector e deployment deletion
 
 Veja [INSTRUCOES-V2.md](06-ecommerce-app/argocd/overlays/production/INSTRUCOES-V2.md) para passo-a-passo detalhado.
+
 </details>
 
 ---
