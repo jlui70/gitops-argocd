@@ -7,9 +7,9 @@ namespace: ecommerce
 resources:
   - ../../base
   # V2 Resources (Backend + Proxy - WITH banner)
-  - ecommerce-ui-backend.yaml
-  - ecommerce-ui-v2-proxy.yaml
-  - configmap-nginx-v2.yaml
+  #  - ecommerce-ui-backend.yaml
+  #  - ecommerce-ui-v2-proxy.yaml
+  #  - configmap-nginx-v2.yaml
 
 # Service Selector Patch
 patches:
@@ -19,18 +19,18 @@ patches:
         path: /spec/selector
         value:
           app: ecommerce-ui
-          version: v2 
+          version: v1 
     target:
       kind: Service
       name: ecommerce-ui
 
   # Delete original v1 deployment
-  - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: ecommerce-ui
-      $patch: delete
-    target:
-      kind: Deployment
-      name: ecommerce-ui
+  #- patch: |-
+  #    apiVersion: apps/v1
+  #    kind: Deployment
+  #    metadata:
+  #      name: ecommerce-ui
+  #    $patch: delete
+  #  target:
+  #    kind: Deployment
+  #    name: ecommerce-ui
