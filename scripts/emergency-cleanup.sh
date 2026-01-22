@@ -6,6 +6,9 @@
 
 set +e  # Continua mesmo com erros
 
+# Desabilita paginador AWS CLI (evita travamento com 'q')
+export AWS_PAGER=""
+
 AWS_PROFILE="devopsproject"
 REGION="us-east-1"
 
