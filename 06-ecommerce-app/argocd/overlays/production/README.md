@@ -13,7 +13,64 @@ Este overlay controla qual versão da aplicação está rodando em produção at
 
 ---
 
-## 🚀 Deploy v1 → v2 (Ativar Banner "NEW FEATURES")
+## � Arquivos Disponíveis
+
+- `kustomization.yaml` → **v1 ATIVA** (estado inicial - sem banner)
+- `kustomization_v1.yaml` → Template v1 (backup)
+- `kustomization_v2.yaml` → Template v2 (banner ativo)
+- `switch-version.sh` → Script automático para alternar versões
+
+---
+
+## 🎯 Duas Formas de Alternar v1 ↔ v2
+
+### ✅ OPÇÃO 1: Via Renomeação (FÁCIL - recomendado para iniciantes)
+
+**Para quem NÃO domina editores como `vi`:**
+
+#### Deploy v2 (ativar banner):
+```bash
+cd ~/lab-argo/gitops-argocd/06-ecommerce-app/argocd/overlays/production
+
+# Backup da v1 atual
+cp kustomization.yaml kustomization_v1_backup.yaml
+
+# Ativar v2
+cp kustomization_v2.yaml kustomization.yaml
+
+# Commit e push
+git add kustomization.yaml
+git commit -m "Deploy v2 - Ativa banner"
+git push origin main
+```
+
+#### Rollback v1 (desativar banner):
+```bash
+# Backup da v2 atual
+cp kustomization.yaml kustomization_v2_backup.yaml
+
+# Voltar para v1
+cp kustomization_v1.yaml kustomization.yaml
+
+# Commit e push
+git add kustomization.yaml
+git commit -m "Rollback v1 - Remove banner"
+git push origin main
+```
+
+#### Ou use o script helper:
+```bash
+./switch-version.sh
+# Escolha opção 1 (v2) ou 2 (v1)
+```
+
+---
+
+### ✅ OPÇÃO 2: Via Edição Manual (para quem domina vi)
+
+---
+
+## 🚀 Deploy v1 → v2 (Ativar Banner "NEW FEATURES") - Via Edição Manual
 
 ### Estado Atual: v1 rodando
 - 1 pod `ecommerce-ui-v1`
