@@ -161,6 +161,91 @@ echo ""
 destroy_stack "Stack 02 - EKS Cluster" "02-eks-cluster"
 
 # IMPORTANTE: Limpar IAM roles/policies órfãs que o Terraform pode não ter deletado
+
+# Limpeza de recursos AWS órfãos (quando Terraform state está vazio)
+echo "═══════════════════════════════════════════════════════════════════"
+echo "🧹 Verificando e limpando recursos AWS órfãos"
+echo "═══════════════════════════════════════════════════════════════════"
+echo ""
+
+# 1. Deletar Load Balancers órfãos (ArgoCD, ALB da aplicação)
+echo "  🔍 Procurando Load Balancers órfãos..."
+ORPHAN_ALBS=$(aws elbv2 describe-load-balancers \
+    --profile $AWS_PROFILE \
+    --query "LoadBalancers[?contains(LoadBalancerName, 'k8s-argocd') || contains(LoadBalancerName, 'k8s-ecommerc')].LoadBalancerArn" \
+    --output text 2>/dev/null)
+
+if [ -n "$ORPHAN_ALBS" ]; then
+    echo "  🗑️  Deletando ALBs órfãos:"
+    for alb_arn in $ORPHAN_ALBS; do
+        ALB_NAME=$(aws elbv2 describe-load-balancers --load-balancer-arns "$alb_arn" --profile $AWS_PROFILE --query 'LoadBalancers[0].LoadBalancerName' --output text)
+        echo "    → Deletando ALB: $ALB_NAME"
+        aws elbv2 delete-load-balancer --load-balancer-arn "$alb_arn" --profile $AWS_PROFILE 2>/dev/null && \
+            echo "      ✅ ALB deletado" || \
+            echo "      ⚠️  Falha ao deletar"
+    done
+    echo "  ⏳ Aguardando ALBs serem deletados (30s)..."
+    sleep 30
+else
+    echo "  ℹ️  Nenhum ALB órfão encontrado"
+fi
+echo ""
+
+# 2. Deletar Target Groups órfãos
+echo "  🔍 Procurando Target Groups órfãos..."
+ORPHAN_TGS=$(aws elbv2 describe-target-groups \
+    --profile $AWS_PROFILE \
+    --query "TargetGroups[?contains(TargetGroupName, 'k8s-')].TargetGroupArn" \
+    --output text 2>/dev/null)
+
+if [ -n "$ORPHAN_TGS" ]; then
+    echo "  🗑️  Deletando Target Groups órfãos:"
+    for tg_arn in $ORPHAN_TGS; do
+        TG_NAME=$(aws elbv2 describe-target-groups --target-group-arns "$tg_arn" --profile $AWS_PROFILE --query 'TargetGroups[0].TargetGroupName' --output text)
+        echo "    → Deletando TG: $TG_NAME"
+        aws elbv2 delete-target-group --target-group-arn "$tg_arn" --profile $AWS_PROFILE 2>/dev/null && \
+            echo "      ✅ TG deletado" || \
+            echo "      ⚠️  Falha ao deletar"
+    done
+else
+    echo "  ℹ️  Nenhum Target Group órfão encontrado"
+fi
+echo ""
+
+# 3. Deletar Security Groups órfãos (exceto default)
+echo "  🔍 Procurando Security Groups órfãos..."
+VPC_ID=$(aws ec2 describe-vpcs \
+    --filters "Name=tag:Name,Values=eks-devopsproject-vpc" \
+    --profile $AWS_PROFILE \
+    --query 'Vpcs[0].VpcId' \
+    --output text 2>/dev/null)
+
+if [ "$VPC_ID" != "None" ] && [ -n "$VPC_ID" ]; then
+    ORPHAN_SGS=$(aws ec2 describe-security-groups \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --profile $AWS_PROFILE \
+        --query "SecurityGroups[?GroupName!='default'].GroupId" \
+        --output text 2>/dev/null)
+    
+    if [ -n "$ORPHAN_SGS" ]; then
+        echo "  🗑️  Deletando Security Groups órfãos:"
+        for sg_id in $ORPHAN_SGS; do
+            SG_NAME=$(aws ec2 describe-security-groups --group-ids "$sg_id" --profile $AWS_PROFILE --query 'SecurityGroups[0].GroupName' --output text)
+            echo "    → Deletando SG: $SG_NAME ($sg_id)"
+            
+            # Remover regras primeiro
+            aws ec2 revoke-security-group-ingress --group-id "$sg_id" --profile $AWS_PROFILE --source-group "$sg_id" 2>/dev/null || true
+            aws ec2 revoke-security-group-egress --group-id "$sg_id" --profile $AWS_PROFILE --cidr 0.0.0.0/0 --protocol -1 2>/dev/null || true
+            
+            aws ec2 delete-security-group --group-id "$sg_id" --profile $AWS_PROFILE 2>/dev/null && \
+                echo "      ✅ SG deletado" || \
+                echo "      ⚠️  Falha ao deletar (pode ter dependências)"
+        done
+    else
+        echo "  ℹ️  Nenhum Security Group órfão encontrado"
+    fi
+fi
+echo ""
 # Isso evita erro "EntityAlreadyExists" em reinstalações
 # VERSÃO DINÂMICA v3.2: Lê nomes reais do Terraform state (funciona mesmo se usuário alterar variables.tf)
 echo "═══════════════════════════════════════════════════════════════════"
@@ -406,6 +491,118 @@ if [[ $destroy_backend =~ ^[Ss]$ ]]; then
         echo "  → Bucket detectado: $BUCKET_NAME"
     fi
     
+
+# Limpeza manual de VPC órfã (se Terraform falhou)
+echo "═══════════════════════════════════════════════════════════════════"
+echo "🧹 Limpeza manual de VPC órfã (se existir)"
+echo "═══════════════════════════════════════════════════════════════════"
+
+VPC_ID=$(aws ec2 describe-vpcs \
+    --filters "Name=tag:Name,Values=eks-devopsproject-vpc" \
+    --profile $AWS_PROFILE \
+    --query 'Vpcs[0].VpcId' \
+    --output text 2>/dev/null)
+
+if [ "$VPC_ID" != "None" ] && [ -n "$VPC_ID" ]; then
+    echo "  📊 VPC órfã encontrada: $VPC_ID"
+    echo "  🗑️  Deletando recursos da VPC manualmente..."
+    
+    # 1. Deletar NAT Gateways
+    echo "    → Deletando NAT Gateways..."
+    NAT_GWS=$(aws ec2 describe-nat-gateways \
+        --filter "Name=vpc-id,Values=$VPC_ID" "Name=state,Values=available" \
+        --profile $AWS_PROFILE \
+        --query 'NatGateways[].NatGatewayId' \
+        --output text 2>/dev/null)
+    
+    for nat_id in $NAT_GWS; do
+        echo "      → Deletando NAT Gateway: $nat_id"
+        aws ec2 delete-nat-gateway --nat-gateway-id "$nat_id" --profile $AWS_PROFILE 2>/dev/null || true
+    done
+    
+    if [ -n "$NAT_GWS" ]; then
+        echo "      ⏳ Aguardando NAT Gateways serem deletados (60s)..."
+        sleep 60
+    fi
+    
+    # 2. Liberar e deletar Elastic IPs
+    echo "    → Deletando Elastic IPs..."
+    EIPS=$(aws ec2 describe-addresses \
+        --filters "Name=domain,Values=vpc" \
+        --profile $AWS_PROFILE \
+        --query 'Addresses[?contains(Tags[?Key==`Name`].Value, `devopsproject`) || AssociationId==null].AllocationId' \
+        --output text 2>/dev/null)
+    
+    for eip_id in $EIPS; do
+        echo "      → Liberando EIP: $eip_id"
+        aws ec2 release-address --allocation-id "$eip_id" --profile $AWS_PROFILE 2>/dev/null || true
+    done
+    
+    # 3. Deletar ENIs restantes
+    echo "    → Deletando ENIs restantes..."
+    ENIS=$(aws ec2 describe-network-interfaces \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --profile $AWS_PROFILE \
+        --query 'NetworkInterfaces[].NetworkInterfaceId' \
+        --output text 2>/dev/null)
+    
+    for eni_id in $ENIS; do
+        echo "      → Deletando ENI: $eni_id"
+        aws ec2 delete-network-interface --network-interface-id "$eni_id" --profile $AWS_PROFILE 2>/dev/null || true
+    done
+    
+    sleep 10
+    
+    # 4. Deletar Internet Gateway
+    echo "    → Deletando Internet Gateway..."
+    IGW_ID=$(aws ec2 describe-internet-gateways \
+        --filters "Name=attachment.vpc-id,Values=$VPC_ID" \
+        --profile $AWS_PROFILE \
+        --query 'InternetGateways[0].InternetGatewayId' \
+        --output text 2>/dev/null)
+    
+    if [ "$IGW_ID" != "None" ] && [ -n "$IGW_ID" ]; then
+        echo "      → Detachando IGW: $IGW_ID"
+        aws ec2 detach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID" --profile $AWS_PROFILE 2>/dev/null || true
+        echo "      → Deletando IGW: $IGW_ID"
+        aws ec2 delete-internet-gateway --internet-gateway-id "$IGW_ID" --profile $AWS_PROFILE 2>/dev/null || true
+    fi
+    
+    # 5. Deletar Subnets
+    echo "    → Deletando Subnets..."
+    SUBNETS=$(aws ec2 describe-subnets \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --profile $AWS_PROFILE \
+        --query 'Subnets[].SubnetId' \
+        --output text 2>/dev/null)
+    
+    for subnet_id in $SUBNETS; do
+        echo "      → Deletando Subnet: $subnet_id"
+        aws ec2 delete-subnet --subnet-id "$subnet_id" --profile $AWS_PROFILE 2>/dev/null || true
+    done
+    
+    # 6. Deletar Route Tables (exceto main)
+    echo "    → Deletando Route Tables..."
+    ROUTE_TABLES=$(aws ec2 describe-route-tables \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --profile $AWS_PROFILE \
+        --query 'RouteTables[?Associations[0].Main!=`true`].RouteTableId' \
+        --output text 2>/dev/null)
+    
+    for rt_id in $ROUTE_TABLES; do
+        echo "      → Deletando Route Table: $rt_id"
+        aws ec2 delete-route-table --route-table-id "$rt_id" --profile $AWS_PROFILE 2>/dev/null || true
+    done
+    
+    # 7. Deletar VPC
+    echo "    → Deletando VPC: $VPC_ID"
+    aws ec2 delete-vpc --vpc-id "$VPC_ID" --profile $AWS_PROFILE 2>/dev/null && \
+        echo "      ✅ VPC deletada com sucesso!" || \
+        echo "      ⚠️  Falha ao deletar VPC (pode ter dependências restantes)"
+else
+    echo "  ℹ️  Nenhuma VPC órfã encontrada"
+fi
+echo ""
     echo "🧹 Esvaziando bucket S3: $BUCKET_NAME"
     
     # Verificar se bucket existe antes de tentar esvaziar
