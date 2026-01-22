@@ -29,7 +29,7 @@ patches:
         path: /spec/selector
         value:
           app: ecommerce-ui
-          version: v2 
+          version: v1 
     target:
       kind: Service
       name: ecommerce-ui
