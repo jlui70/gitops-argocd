@@ -15,9 +15,9 @@ resources:
 
 # V2 Resources (Backend + Proxy - WITH banner)
 # Uncomment these 3 lines to enable v2:
-  - ecommerce-ui-backend.yaml
-  - ecommerce-ui-v2-proxy.yaml
-  - configmap-nginx-v2.yaml
+# - ecommerce-ui-backend.yaml
+# - ecommerce-ui-v2-proxy.yaml
+# - configmap-nginx-v2.yaml
 
 # ================================================================
 
