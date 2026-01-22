@@ -104,9 +104,9 @@ aws sts get-caller-identity --profile devopsproject
 # ⏱️  Tempo total: ~25 minutos
 # 📝 Mostra URLs e senhas no final
 ```
-### Testar acesso (Instâncias Ec2)
+#### Testar acesso (Instâncias Ec2)
 kubectl get nodes
-### Output: 3 nodes t3.medium READY
+#### Output: 3 nodes t3.medium READY
 ```
 
 #### 5️⃣ ArgoCD
