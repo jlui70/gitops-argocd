@@ -447,21 +447,20 @@ echo "════════════════════════�
 echo "🗑️  Destruindo: Stack 00 - Backend (S3 + DynamoDB)"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
-read -p "⚠️  Destruir backend também? Isso removerá o state remoto! (s/N): " destroy_backend
+echo "ℹ️  Backend será destruído automaticamente (necessário para rebuild limpo)"
+echo ""
 
-if [[ $destroy_backend =~ ^[Ss]$ ]]; then
-    cd "$PROJECT_ROOT/00-backend"
-    
-    # Obter nome do bucket do terraform
-    BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null)
-    
-    if [ -z "$BUCKET_NAME" ]; then
-        echo "⚠️  Não foi possível obter nome do bucket. Tentando detectar..."
-        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
-        BUCKET_NAME="eks-devopsproject-state-files-${ACCOUNT_ID}"
-        echo "  → Bucket detectado: $BUCKET_NAME"
-    fi
-    
+cd "$PROJECT_ROOT/00-backend"
+
+# Obter nome do bucket do terraform
+BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null)
+
+if [ -z "$BUCKET_NAME" ]; then
+    echo "⚠️  Não foi possível obter nome do bucket. Tentando detectar..."
+    ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
+    BUCKET_NAME="eks-devopsproject-state-files-${ACCOUNT_ID}"
+    echo "  → Bucket detectado: $BUCKET_NAME"
+fi
 
 # Limpeza manual de VPC órfã (se Terraform falhou)
 echo "═══════════════════════════════════════════════════════════════════"
@@ -574,59 +573,57 @@ else
     echo "  ℹ️  Nenhuma VPC órfã encontrada"
 fi
 echo ""
-    echo "🧹 Esvaziando bucket S3: $BUCKET_NAME"
+
+echo "🧹 Esvaziando bucket S3: $BUCKET_NAME"
+
+# Verificar se bucket existe antes de tentar esvaziar
+if aws s3 ls "s3://$BUCKET_NAME" --profile $AWS_PROFILE &>/dev/null; then
+    echo "  → Removendo todos os objetos e versões do bucket..."
     
-    # Verificar se bucket existe antes de tentar esvaziar
-    if aws s3 ls "s3://$BUCKET_NAME" --profile $AWS_PROFILE &>/dev/null; then
-        echo "  → Removendo todos os objetos e versões do bucket..."
-        
-        # Método 1: Usar aws s3 rm com --recursive (mais simples e confiável)
-        aws s3 rm "s3://$BUCKET_NAME" --recursive --profile $AWS_PROFILE 2>/dev/null || true
-        
-        # Método 2: Deletar versões antigas (versionamento habilitado)
-        echo "  → Verificando versões antigas..."
-        VERSIONS=$(aws s3api list-object-versions \
+    # Método 1: Usar aws s3 rm com --recursive (mais simples e confiável)
+    aws s3 rm "s3://$BUCKET_NAME" --recursive --profile $AWS_PROFILE 2>/dev/null || true
+    
+    # Método 2: Deletar versões antigas (versionamento habilitado)
+    echo "  → Verificando versões antigas..."
+    VERSIONS=$(aws s3api list-object-versions \
+        --bucket "$BUCKET_NAME" \
+        --profile $AWS_PROFILE \
+        --output json \
+        --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
+    
+    if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "" ] && [ "$VERSIONS" != "{}" ]; then
+        echo "  → Removendo versões de objetos..."
+        aws s3api delete-objects \
             --bucket "$BUCKET_NAME" \
             --profile $AWS_PROFILE \
-            --output json \
-            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
-        
-        if [ "$VERSIONS" != "null" ] && [ "$VERSIONS" != "" ] && [ "$VERSIONS" != "{}" ]; then
-            echo "  → Removendo versões de objetos..."
-            aws s3api delete-objects \
-                --bucket "$BUCKET_NAME" \
-                --profile $AWS_PROFILE \
-                --delete "$VERSIONS" 2>/dev/null || true
-        fi
-        
-        # Método 3: Deletar delete markers
-        echo "  → Verificando delete markers..."
-        MARKERS=$(aws s3api list-object-versions \
-            --bucket "$BUCKET_NAME" \
-            --profile $AWS_PROFILE \
-            --output json \
-            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
-        
-        if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "" ] && [ "$MARKERS" != "{}" ]; then
-            echo "  → Removendo delete markers..."
-            aws s3api delete-objects \
-                --bucket "$BUCKET_NAME" \
-                --profile $AWS_PROFILE \
-                --delete "$MARKERS" 2>/dev/null || true
-        fi
-        
-        echo "  ✅ Bucket esvaziado completamente"
-    else
-        echo "  ℹ️  Bucket não encontrado ou já foi deletado"
+            --delete "$VERSIONS" 2>/dev/null || true
     fi
-    echo ""
     
-    # Agora destruir o backend (com force_destroy = true, mesmo se houver objetos restantes)
-    terraform destroy -auto-approve
-    echo "✅ Stack 00 - Backend destruído"
-else
-    echo "⏸️  Stack 00 - Backend preservado (state remoto mantido)"
+    # Método 3: Deletar delete markers
+    echo "  → Verificando delete markers..."
+    MARKERS=$(aws s3api list-object-versions \
+        --bucket "$BUCKET_NAME" \
+        --profile $AWS_PROFILE \
+        --output json \
+        --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
+    
+    if [ "$MARKERS" != "null" ] && [ "$MARKERS" != "" ] && [ "$MARKERS" != "{}" ]; then
+        echo "  → Removendo delete markers..."
+        aws s3api delete-objects \
+            --bucket "$BUCKET_NAME" \
+            --profile $AWS_PROFILE \
+        --delete "$MARKERS" 2>/dev/null || true
 fi
+
+echo "  ✅ Bucket esvaziado completamente"
+else
+echo "  ℹ️  Bucket não encontrado ou já foi deletado"
+fi
+echo ""
+
+# Agora destruir o backend (com force_destroy = true, mesmo se houver objetos restantes)
+terraform destroy -auto-approve
+echo "✅ Stack 00 - Backend destruído"
 echo ""
 
 echo "╔══════════════════════════════════════════════════════════════════╗"
@@ -640,16 +637,9 @@ echo "  ✅ Namespace ecommerce + ALB (via kubectl)"
 echo "  ✅ Namespace sample-app (se existia)"
 echo "  ✅ Stack 02: EKS Cluster + Node Group + ALB Controller + External DNS"
 echo "  ✅ Stack 01: VPC + Subnets + NAT Gateways + EIPs"
-if [[ $destroy_backend =~ ^[Ss]$ ]]; then
 echo "  ✅ Stack 00: Backend (S3 + DynamoDB)"
-else
-echo "  ⏸️  Stack 00: Backend preservado"
-fi
 echo ""
 echo "💰 Custos AWS agora: ~$0/mês"
-if [[ ! $destroy_backend =~ ^[Ss]$ ]]; then
-echo "   (S3 + DynamoDB do backend: <$1/mês)"
-fi
 echo ""
 echo "🔄 Para recriar tudo: ./scripts/rebuild-all.sh"
 echo ""
