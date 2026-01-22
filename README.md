@@ -131,14 +131,15 @@ echo "🌐 ArgoCD UI: http://$ARGOCD_URL"
 # User: admin
 # Pass: [use comando da etapa anterior]
 ```
+
 #### 7️⃣ Acessar Aplicação Ecommerce via ALB
 
-### Obter URL do ALB
+```bash
+# Obter URL do ALB
 ALB_URL=$(kubectl get ingress ecommerce-ingress -n ecommerce \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 echo "🌐 Aplicação disponível em: http://$ALB_URL"
-
 ```
 
 **✅ Setup completo! Agora você tem:**
