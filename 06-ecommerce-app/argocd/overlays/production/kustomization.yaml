@@ -6,35 +6,25 @@ namespace: ecommerce
 # Base resources (7 microservices + ingress)
 resources:
   - ../../base
-
-# VERSION CONTROL: Comment/Uncomment to switch between v1 and v2
-# ================================================================
-
-# V1 Resources (Original - NO banner)
-# - No additional resources needed (deployment is in base)
-
-# V2 Resources (Backend + Proxy - WITH banner)
-# Uncomment these 3 lines to enable v2:
-- ecommerce-ui-backend.yaml
-- ecommerce-ui-v2-proxy.yaml
-- configmap-nginx-v2.yaml
-
-# ================================================================
+  # V2 Resources (Backend + Proxy - WITH banner)
+  - ecommerce-ui-backend.yaml
+  - ecommerce-ui-v2-proxy.yaml
+  - configmap-nginx-v2.yaml
 
 # Service Selector Patch
 patches:
-  # Route traffic to v1 (change to v2 when deploying v2)
+  # Route traffic to v2
   - patch: |-
       - op: replace
         path: /spec/selector
         value:
           app: ecommerce-ui
-          version: v1 
+          version: v2 
     target:
       kind: Service
       name: ecommerce-ui
 
-# When deploying v2, uncomment this patch to delete original deployment:
+  # Delete original v1 deployment
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
