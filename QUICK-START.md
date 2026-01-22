@@ -106,9 +106,28 @@ terraform apply -auto-approve
 
 ### Stack 3: EKS + ArgoCD (20 minutos)
 
+⚠️ **IMPORTANTE:** Configure o kubeconfig ANTES de aplicar esta stack!
+
 ```bash
 cd ../02-eks-cluster
 terraform init
+
+# Criar cluster primeiro (sem ArgoCD ainda)
+terraform apply -target=aws_eks_cluster.cluster -auto-approve
+
+# ⏱️ Aguardar ~10 minutos (cluster sendo criado)
+
+# Configurar kubeconfig AGORA (antes de continuar)
+aws eks update-kubeconfig \
+  --name eks-devopsproject-cluster \
+  --region us-east-1 \
+  --profile devopsproject
+
+# Testar conexão
+kubectl get nodes
+# Deve mostrar: No resources found (nodes ainda sendo criados)
+
+# Agora aplicar o resto (node group + ArgoCD + controllers)
 terraform apply -auto-approve
 ```
 
@@ -120,19 +139,23 @@ terraform apply -auto-approve
 - External DNS
 - Metrics Server
 
-**☕ Aguarde ~20 minutos** (cluster EKS demora para provisionar)
+✅ **Criado:**
+- EKS Cluster (Kubernetes 1.32)
+- Node Group (3x t3.medium)
+- ArgoCD instalado via Helm
+- AWS Load Balancer Controller
+- External DNS
+- Metrics Server
+
+**⏱️ Tempo total do deploy Terraform:** ~25 minutos
 
 ---
 
-## 4️⃣ Configurar kubectl (1 minuto)
+## 4️⃣ Validar Cluster e kubectl (1 minuto)
+
+Kubeconfig já foi configurado na stack anterior. Valide agora:
 
 ```bash
-# Configurar kubeconfig
-aws eks update-kubeconfig \
-  --name eks-devopsproject-cluster \
-  --region us-east-1 \
-  --profile devopsproject
-
 # Testar acesso
 kubectl get nodes
 
@@ -149,7 +172,9 @@ kubectl get pods -n argocd
 
 # Output esperado: 7 pods rodando
 # argocd-application-controller-xxx    1/1  Running
+# argocd-applicationset-controller-xxx 1/1  Running
 # argocd-dex-server-xxx                1/1  Running
+# argocd-notifications-controller-xxx  1/1  Running
 # argocd-redis-xxx                     1/1  Running
 # argocd-repo-server-xxx               1/1  Running
 # argocd-server-xxx                    1/1  Running
@@ -342,6 +367,51 @@ kubectl get pods -n kube-system | grep aws-load-balancer-controller
 
 # Ver logs
 kubectl logs -n kube-system deployment/aws-load-balancer-controller
+```
+
+---
+
+## 🚨 Troubleshooting - Erros Comuns
+
+### Erro: "connection refused" ao aplicar stack 02
+
+**Sintoma:**
+```
+Error: Post "http://localhost/api/v1/namespaces/argocd/secrets": dial tcp 127.0.0.1:80: connect: connection refused
+```
+
+**Causa:** Kubeconfig não foi configurado antes da stack 02.
+
+**Solução:**
+```bash
+# Configure kubeconfig
+aws eks update-kubeconfig \
+  --name eks-devopsproject-cluster \
+  --region us-east-1 \
+  --profile devopsproject
+
+# Aplique novamente (vai criar apenas o que faltou)
+cd ~/lab-argo/gitops-argocd/02-eks-cluster
+terraform apply -auto-approve
+```
+
+### Erro: Policies ou Roles já existem
+
+**Sintoma:**
+```
+Error: creating IAM Role: EntityAlreadyExists
+```
+
+**Causa:** Recursos de execução anterior ainda existem na AWS.
+
+**Solução:**
+```bash
+# Deletar via console AWS ou CLI
+aws iam delete-role --role-name <nome-da-role> --profile devopsproject
+aws iam delete-policy --policy-arn <arn-da-policy> --profile devopsproject
+
+# Aplicar novamente
+terraform apply -auto-approve
 ```
 
 ---
