@@ -343,6 +343,47 @@ else
 fi
 echo ""
 
+# Limpeza de ENIs órfãas (ALB) antes de destruir VPC
+echo "═══════════════════════════════════════════════════════════════════"
+echo "🧹 Limpando ENIs órfãas (ALB) antes de destruir VPC"
+echo "═══════════════════════════════════════════════════════════════════"
+
+# Obter VPC ID do Terraform state
+cd "$PROJECT_ROOT/01-networking"
+VPC_ID=$(terraform state show aws_vpc.this 2>/dev/null | grep -E "^\s+id\s+=" | awk -F'"' '{print $2}')
+
+if [ -n "$VPC_ID" ]; then
+    echo "  📊 VPC ID: $VPC_ID"
+    echo "  🔍 Procurando ENIs órfãas..."
+    
+    # Listar ENIs na VPC que:
+    # 1. Estão disponíveis (não attached) OU
+    # 2. Foram criadas pelo ELB (ALB Controller)
+    ORPHAN_ENIS=$(aws ec2 describe-network-interfaces \
+        --filters "Name=vpc-id,Values=$VPC_ID" \
+        --profile $AWS_PROFILE \
+        --query 'NetworkInterfaces[?Status==`available` || contains(Description, `ELB`) || contains(RequesterId, `amazon-elb`)].NetworkInterfaceId' \
+        --output text 2>/dev/null)
+    
+    if [ -n "$ORPHAN_ENIS" ]; then
+        echo "  🗑️  Deletando ENIs órfãas:"
+        for eni_id in $ORPHAN_ENIS; do
+            echo "    → Deletando ENI: $eni_id"
+            aws ec2 delete-network-interface \
+                --network-interface-id "$eni_id" \
+                --profile $AWS_PROFILE 2>/dev/null && \
+                echo "      ✅ ENI deletada" || \
+                echo "      ⚠️  Falha ao deletar (pode estar em uso)"
+        done
+        echo "  ⏳ Aguardando propagação (10s)..."
+        sleep 10
+    else
+        echo "  ℹ️  Nenhuma ENI órfã encontrada"
+    fi
+else
+    echo "  ⚠️  VPC ID não encontrado no state (VPC já foi destruída?)"
+fi
+echo ""
 destroy_stack "Stack 01 - Networking (VPC)" "01-networking"
 
 # Backend por último
