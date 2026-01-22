@@ -391,36 +391,6 @@ Git Push (rollback):
 
 ---
 
-## 📊 Recursos Provisionados
-
-### AWS
-
-| Recurso | Quantidade | Descrição |
-|---------|------------|-----------|
-| **EKS Cluster** | 1 | Kubernetes 1.32 |
-| **EC2 Instances** | 3 | t3.medium (Node Group) |
-| **VPC** | 1 | 10.0.0.0/16 |
-| **Subnets** | 6 | 2 public + 4 private |
-| **NAT Gateways** | 2 | High availability |
-| **Application Load Balancer** | 1 | Ingress traffic |
-| **Route53 Records** | 1 | DNS (opcional) |
-| **S3 Bucket** | 1 | Terraform state |
-| **DynamoDB Table** | 1 | Terraform state lock |
-
-### Kubernetes
-
-| Recurso | Quantidade | Descrição |
-|---------|------------|-----------|
-| **ArgoCD** | 1 | GitOps controller (7 pods) |
-| **Deployments** | 7-10 | v1 + v2 (quando deployd) + 6 microservices |
-| **Services** | 8 | ClusterIP + LoadBalancer |
-| **Ingress** | 1 | ALB Controller |
-| **ConfigMaps** | 2 | NGINX v2 config |
-| **Namespaces** | 2 | argocd + ecommerce |
-| **Application CRD** | 1 | ArgoCD Application resource |
-
----
-
 ## 💰 Custos AWS
 
 ### Por Hora
@@ -440,82 +410,16 @@ Git Push (rollback):
 ### ⚠️ IMPORTANTE: Destruir Após Testes
 
 ```bash
-# Deletar aplicação ArgoCD primeiro
-kubectl delete application ecommerce-app -n argocd
+# Usar script automatizado (recomendado)
+./scripts/destroy-all.sh
 
-# Aguardar 2-3 minutos (ArgoCD limpa recursos)
-
-# Destruir infraestrutura Terraform (ordem reversa)
-cd ~/gitops-eks/02-eks-cluster
-terraform destroy -auto-approve  # ~10 min
-
-cd ../01-networking
-terraform destroy -auto-approve  # ~5 min
-
-cd ../00-backend
-terraform destroy -auto-approve  # ~30s
+# O script destrói automaticamente (ordem reversa):
+# 1. Stack 02: EKS Cluster + Node Group + ArgoCD (~10 min)
+# 2. Stack 01: VPC + Subnets + NAT Gateways (~5 min)
+# 3. Stack 00: S3 bucket + DynamoDB table (~30s)
 
 # ✅ Custos após destroy: $0/mês
 ```
-
-**Dica para laboratório:**
-- 2-4 horas de testes: ~$1-2 total
-- **SEMPRE destruir** ao finalizar para evitar cobranças
-- Backend S3 tem custo mínimo mesmo após destroy (~$0.02/mês)
-
----
-
-## 📚 Documentação Detalhada
-
-### 📖 Guias no Repositório
-
-- **[FLUXO-DEMO-GITOPS.md](./FLUXO-DEMO-GITOPS.md)** - Fluxo completo do demo GitOps com ArgoCD
-- **[RESUMO-SOLUCAO-FINAL.md](./RESUMO-SOLUCAO-FINAL.md)** - Resumo da solução implementada
-- **[ROTEIRO-APRESENTACAO.md](./ROTEIRO-APRESENTACAO.md)** - Roteiro para apresentação (15-17 min)
-- **[SOLUTION-ARGOCD-AUTOSYNC.md](./SOLUTION-ARGOCD-AUTOSYNC.md)** - Documentação técnica do auto-sync
-
-### 🎯 Arquivos Principais
-
-#### Infraestrutura (gitops-eks)
-```
-00-backend/          # Terraform state backend (S3+DynamoDB)
-01-networking/       # VPC, Subnets, NAT Gateways
-02-eks-cluster/      # EKS + ArgoCD via Helm + ALB Controller
-```
-
-#### Manifestos Kubernetes (gitops-argocd)
-```
-06-ecommerce-app/argocd/
-├── base/                          # Recursos base (deployments, services)
-└── overlays/
-    └── production/
-        ├── kustomization.yaml     # ⭐ Controla v1 ↔ v2 (editar aqui)
-        ├── ecommerce-ui-backend.yaml
-        ├── ecommerce-ui-v2-proxy.yaml
-        └── configmap-nginx-v2.yaml
-
-03-argocd-apps/
-└── ecommerce-app.yaml             # Application CRD (conecta Git → Cluster)
-```
-
-### 🔑 Conceitos Chave
-
-**GitOps Declarativo:**
-- Source of Truth: Git repository
-- Desired State: Manifests no Git
-- Atual State: Recursos no cluster
-- Reconciliation: ArgoCD sincroniza automaticamente
-
-**Kustomize Overlays:**
-- `base/`: Recursos comuns (não altera)
-- `overlays/production/`: Customizações por ambiente
-- Edita apenas `kustomization.yaml` para v1↔v2
-
-**ArgoCD Auto-Sync:**
-- Polling: 30 segundos
-- Hard Refresh: Ignora cache
-- Prune: Remove recursos deletados do Git
-- Self-Heal: Restaura drift automático
 
 ---
 
@@ -589,95 +493,6 @@ Este projeto demonstra proficiência em:
 - ✅ **Kustomize** - Overlay management
 - ✅ **RBAC & Security** - IAM Roles, OIDC
 - ✅ **Observability** - Metrics Server, ArgoCD UI
-
----
-
-## ❓ FAQ - Perguntas Frequentes
-
-### Por que tudo em um repositório?
-
-**Simplicidade e organização:**
-- **Infraestrutura Terraform** (00-backend, 01-networking, 02-eks-cluster): Provisiona AWS
-- **Manifestos Kubernetes** (06-ecommerce-app/argocd): ArgoCD monitora esta pasta
-- **Application CRD** (03-argocd-apps): Conecta Git → Cluster
-
-Tudo junto facilita clone, versionamento e compartilhamento do projeto completo.
-
-### ArgoCD não vai re-deployar quando eu alterar Terraform?
-
-Não! ArgoCD monitora **apenas** o path específico: `06-ecommerce-app/argocd/overlays/production/`
-
-Mudanças em Terraform não triggam sync no ArgoCD.
-
-### Como funciona o auto-sync exatamente?
-
-1. ArgoCD faz polling no Git a cada 30s
-2. Detecta mudança em `overlays/production/kustomization.yaml`
-3. Renderiza Kustomize com as mudanças
-4. Compara desired state (Git) vs actual state (cluster)
-5. Aplica diff automaticamente
-6. Aguarda health checks
-7. Marca sync como "Synced" na UI
-
-### Preciso ter domínio próprio?
-
-Não. O projeto funciona com ALB direto. Domínio é opcional para DNS amigável.
-
-### Quanto tempo leva o setup completo do zero?
-
-- **Deploy infraestrutura**: ~25 minutos
-- **Aplicar Application ArgoCD**: ~2 minutos
-- **Total**: ~30 minutos
-
-### E se eu quiser adicionar mais microserviços?
-
-1. Adicionar deployment/service em `base/`
-2. Referenciar no `kustomization.yaml` do overlay
-3. Commit + push
-4. ArgoCD detecta e aplica automaticamente
-
-### Como testar sem gastar muito na AWS?
-
-- Provisione por 2-4 horas (~$1-2)
-- Faça todos os testes de v1↔v2
-- Destrua com `terraform destroy`
-- Total: **$1-2 para laboratório completo**
-
-### O banner v2 é só exemplo?
-
-Sim! Representa qualquer mudança real:
-- Nova funcionalidade
-- Fix de bug
-- Atualização de configuração
-- Nova versão de imagem
-
-O importante é demonstrar Blue/Green deployment via GitOps.
-
----
-
-## 📋 Checklist para Apresentação
-
-Use esta lista para validar antes de demonstrar:
-
-- [ ] EKS cluster rodando (`kubectl get nodes`)
-- [ ] ArgoCD instalado (`kubectl get pods -n argocd`)
-- [ ] Application criada (`kubectl get application -n argocd`)
-- [ ] v1 deployed (`kubectl get pods -n ecommerce`)
-- [ ] ALB respondendo (`curl http://$ALB_URL`)
-- [ ] Git clone do gitops-argocd feito
-- [ ] Credenciais Git configuradas
-- [ ] ArgoCD UI acessível (port-forward)
-- [ ] Banner v1 não aparece (baseline)
-
-**Durante demo:**
-- [ ] Editar `kustomization.yaml` (descomentar v2)
-- [ ] Commit + push
-- [ ] Mostrar ArgoCD UI detectando mudança (~30s)
-- [ ] Pods v2 sobem (Green)
-- [ ] Tráfego muda para v2 (Blue→Green)
-- [ ] Banner aparece no navegador ✅
-- [ ] Rollback: comentar v2, commit + push
-- [ ] Banner desaparece (v1 volta)
 
 ---
 
