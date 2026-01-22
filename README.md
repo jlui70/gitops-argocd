@@ -16,6 +16,7 @@
 
 Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizado em Kubernetes (Amazon EKS) utilizando **ArgoCD** e as melhores práticas de DevOps moderno:
 
+
 - ✅ **GitOps com ArgoCD** - Deploy automático via `git push` (polling 30s)
 - ✅ **Blue/Green Deployment** - Zero downtime e rollback instantâneo
 - ✅ **Infraestrutura como Código** - Terraform modular (Backend, Networking, EKS+ArgoCD)
@@ -91,11 +92,9 @@ aws sts get-caller-identity --profile devopsproject
 # }
 ```
 
-#### 3️⃣ Deploy Infraestrutura com Terraform
+#### 3️⃣ Deploy Completo - Backend → Networking → EKS + ArgoCD via Terraform
 
-**Opção Automatizada (RECOMENDADO):**
 ```bash
-# Script que cria TUDO automaticamente: Backend → Networking → EKS+ArgoCD
 ./scripts/rebuild-all.sh
 
 # ✅ Cria automaticamente:
@@ -105,14 +104,15 @@ aws sts get-caller-identity --profile devopsproject
 # ⏱️  Tempo total: ~25 minutos
 # 📝 Mostra URLs e senhas no final
 ```
-# Testar acesso
+### Testar acesso (Instâncias Ec2)
 kubectl get nodes
-# Output esperado: 3 nodes t3.medium READY
+### Output: 3 nodes t3.medium READY
 ```
 
-#### 5️⃣ Verificar ArgoCD
+#### 5️⃣ ArgoCD
 
-# Obter senha do admin (também mostrada no final da execução do script rebuild-all.sh)
+# Obter senha user admin para acesso ArgoCD
+
 kubectl get secret argocd-initial-admin-secret \
   -n argocd \
   -o jsonpath="{.data.password}" | base64 -d && echo
@@ -122,7 +122,7 @@ kubectl get secret argocd-initial-admin-secret \
 
 **Via LoadBalancer (já exposto publicamente):**
 ```bash
-# Obter URL do ArgoCD
+### Obter URL do ArgoCD
 ARGOCD_URL=$(kubectl get svc argocd-server -n argocd \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
@@ -133,15 +133,11 @@ echo "🌐 ArgoCD UI: http://$ARGOCD_URL"
 ```
 #### 7️⃣ Acessar Aplicação Ecommerce via ALB
 
-# Obter URL do ALB
+### Obter URL do ALB
 ALB_URL=$(kubectl get ingress ecommerce-ingress -n ecommerce \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 echo "🌐 Aplicação disponível em: http://$ALB_URL"
-
-# Testar endpoint
-curl -I http://$ALB_URL
-# Output esperado: HTTP/1.1 200 OK
 
 ```
 
@@ -153,7 +149,7 @@ curl -I http://$ALB_URL
 
 ---
 
-## 🔄 Testes GitOps - Deploy v1 → v2 → Rollback
+#### 🔄 Testes GitOps - Deploy v1 → v2 → Rollback
 
 ### 📋 Três Formas de Alternar Versões
 
@@ -172,6 +168,7 @@ cd gitops-argocd/06-ecommerce-app/argocd/overlays/production
 ```
 
 **Vantagens:** Detecção automática da versão atual, cria backup, mostra comandos git prontos.
+
 </details>
 
 <details>
@@ -188,6 +185,7 @@ cp kustomization_v1.yaml kustomization.yaml
 ```
 
 **Vantagens:** Sem erro de indentação YAML, copy-paste seguro, não precisa conhecer vi.
+
 </details>
 
 <details>
