@@ -12,45 +12,6 @@
 
 ---
 
-## 📦 Repositório do Projeto
-
-Tudo em **um único repositório** para facilitar:
-
-```
-📁 gitops-argocd (repositório único)
-   ├─ 00-backend/          → Terraform: S3 + DynamoDB state
-   ├─ 01-networking/       → Terraform: VPC, Subnets, NAT
-   ├─ 02-eks-cluster/      → Terraform: EKS + ArgoCD via Helm
-   ├─ 03-argocd-apps/      → Application CRD (conecta Git→Cluster)
-   └─ 06-ecommerce-app/
-       └─ argocd/
-           ├─ base/         → Manifestos base K8s
-           └─ overlays/
-               └─ production/  → Kustomize v1↔v2 (editar aqui)
-```
-
-🔗 **https://github.com/jlui70/gitops-argocd**
-
-**Estrutura completa:**
-- ✅ **Infraestrutura Terraform** (3 stacks)
-- ✅ **Manifestos Kubernetes** (Kustomize base + overlays)
-- ✅ **ArgoCD Application** (CRD que conecta tudo)
-- ✅ **Scripts auxiliares** (deploy, rollback, validação)
-- ✅ **Documentação completa**
-
----
-
-## ⚡ Quick Start
-
-**Quer começar rápido?** Siga o guia passo-a-passo:
-
-📘 **[QUICK-START.md](./QUICK-START.md)** - Setup completo em 30 minutos
-
-Cobre desde o `git clone` (um único repositório) até deploy v1 → v2 → rollback funcionando.
-
-
----
-
 ## 🎯 Visão Geral
 
 Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizado em Kubernetes (Amazon EKS) utilizando **ArgoCD** e as melhores práticas de DevOps moderno:
@@ -62,7 +23,6 @@ Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizad
 - ✅ **Segurança** - IAM + RBAC + OIDC
 - ✅ **Aplicação Demo** - E-commerce com 7 microserviços
 - ✅ **Ingress Controller** - AWS Load Balancer Controller
-- ✅ **DNS Automático** - External DNS com Route53
 - ✅ **Auto-Sync** - ArgoCD detecta mudanças no Git e aplica automaticamente
 
 ---
@@ -106,46 +66,13 @@ Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizad
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Fluxo Completo:**
-1. Developer edita `kustomization.yaml` (descomenta seção v2)
-2. Git push para branch main
-3. ArgoCD detecta mudança automaticamente (30s)
-4. ArgoCD aplica Blue/Green deployment (v2 sobe, tráfego muda)
-5. Aplicação atualizada sem downtime
-
-**Rollback:**
-1. Edita `kustomization.yaml` (comenta seção v2, descomenta v1)
-2. Git push
-3. ArgoCD reverte para v1 automaticamente (30-45s)
-
----
-
-## 🚀 Quick Start - Setup Completo do Zero
-
-### Pré-requisitos
-
-- **AWS Account** com permissões administrativas
-- **AWS CLI** configurado (v2.x) com profile
-- **Terraform** (v1.12+)
-- **kubectl** (v1.28+)
-- **Git** configurado com GitHub
-- Domínio próprio registrado (opcional, para DNS)
-
----
-
 ### 🎬 Passo a Passo Completo
 
-#### 1️⃣ Clonar Repositórios
-
+#### 1️⃣ Clonar Repositório
 ```bash
-# Clonar repositório de manifestos (ArgoCD lê daqui)
+
 git clone https://github.com/jlui70/gitops-argocd.git
 cd gitops-argocd
-
-# Clonar repositório de infraestrutura Terraform
-git clone https://github.com/jlui70/gitops-eks.git
-cd gitops-eks
-```
 
 #### 2️⃣ Configurar AWS CLI
 
@@ -178,63 +105,6 @@ aws sts get-caller-identity --profile devopsproject
 # ⏱️  Tempo total: ~25 minutos
 # 📝 Mostra URLs e senhas no final
 ```
-
-**Opção Manual (para debug ou customização):**
-
-<details>
-<summary>Clique para ver deploy manual por stack</summary>
-
-**Stack 1: Backend**
-```bash
-cd 00-backend
-terraform init
-terraform apply -auto-approve
-# ✅ Cria: S3 bucket + DynamoDB table
-# ⏱️  ~30 segundos
-```
-
-**Stack 2: Networking**
-```bash
-cd ../01-networking
-terraform init
-terraform apply -auto-approve
-# ✅ Cria: VPC + Subnets + NAT Gateways
-# ⏱️  ~5 minutos
-```
-
-**Stack 3: EKS + ArgoCD**
-```bash
-cd ../02-eks-cluster
-terraform init
-
-# Criar cluster primeiro
-terraform apply -target=aws_eks_cluster.cluster -auto-approve
-# ⏱️  ~10 minutos
-
-# Configurar kubeconfig
-aws eks update-kubeconfig \
-  --name eks-devopsproject-cluster \
-  --region us-east-1 \
-  --profile devopsproject
-
-# Aplicar resto (node group + ArgoCD)
-terraform apply -auto-approve
-# ⏱️  ~10 minutos
-```
-
-</details>
-
-#### 4️⃣ Configurar kubectl (se usou deploy manual)
-
-**Se usou `rebuild-all.sh`, pule esta etapa - já está configurado automaticamente!**
-
-```bash
-# Configurar kubeconfig para acessar o cluster
-aws eks update-kubeconfig \
-  --name eks-devopsproject-cluster \
-  --region us-east-1 \
-  --profile devopsproject
-
 # Testar acesso
 kubectl get nodes
 # Output esperado: 3 nodes t3.medium READY
@@ -242,12 +112,7 @@ kubectl get nodes
 
 #### 5️⃣ Verificar ArgoCD
 
-```bash
-# Ver ArgoCD instalado
-kubectl get pods -n argocd
-# Output esperado: 7 pods ArgoCD rodando
-
-# Obter senha do admin (também mostrada no rebuild-all.sh)
+# Obter senha do admin (também mostrada no final da execução do script rebuild-all.sh)
 kubectl get secret argocd-initial-admin-secret \
   -n argocd \
   -o jsonpath="{.data.password}" | base64 -d && echo
@@ -266,38 +131,7 @@ echo "🌐 ArgoCD UI: http://$ARGOCD_URL"
 # User: admin
 # Pass: [use comando da etapa anterior]
 ```
-
-**Alternativa via Port-Forward:**
-```bash
-kubectl port-forward svc/argocd-server -n argocd 8080:80 &
-
-# Abrir navegador: http://localhost:8080
-```
-
-#### 7️⃣ Aplicar Application ArgoCD (conecta Git → Cluster)
-
-```bash
-# Voltar para repositório de manifestos
-cd ~/gitops-argocd
-
-# Aplicar Application CRD (aponta ArgoCD para o Git)
-kubectl apply -f 03-argocd-apps/ecommerce-app.yaml
-
-# Verificar Application criada
-kubectl get application -n argocd
-# Output esperado: ecommerce-app | Synced | Healthy
-```
-
-#### 8️⃣ Validar Deployment
-
-```bash
-# Ver pods da aplicação
-kubectl get pods -n ecommerce
-# Output esperado: 7 pods rodando (v1 inicial)
-
-# Ver ingress e ALB
-kubectl get ingress -n ecommerce
-# Output esperado: ADDRESS aponta para ALB
+#### 7️⃣ Acessar Aplicação Ecommerce via ALB
 
 # Obter URL do ALB
 ALB_URL=$(kubectl get ingress ecommerce-ingress -n ecommerce \
@@ -308,6 +142,7 @@ echo "🌐 Aplicação disponível em: http://$ALB_URL"
 # Testar endpoint
 curl -I http://$ALB_URL
 # Output esperado: HTTP/1.1 200 OK
+
 ```
 
 **✅ Setup completo! Agora você tem:**
@@ -315,7 +150,6 @@ curl -I http://$ALB_URL
 - ✅ ArgoCD instalado e configurado
 - ✅ Aplicação v1 deployed (7 microserviços)
 - ✅ ALB funcionando
-- ✅ DNS automático (se configurou Route53)
 
 ---
 
@@ -329,7 +163,7 @@ Você pode escolher qualquer um dos métodos abaixo para alternar entre v1 e v2:
 <summary><strong>🎯 OPÇÃO 1: Script Helper (Mais Fácil)</strong></summary>
 
 ```bash
-cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
+cd gitops-argocd/06-ecommerce-app/argocd/overlays/production
 ./switch-version.sh
 # Menu interativo:
 # 1 - Ativar v2 (banner)
@@ -344,7 +178,7 @@ cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
 <summary><strong>📁 OPÇÃO 2: Copiar Template (Simples)</strong></summary>
 
 ```bash
-cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
+cd gitops-argocd/06-ecommerce-app/argocd/overlays/production
 
 # Para ativar v2 (banner):
 cp kustomization_v2.yaml kustomization.yaml
@@ -360,14 +194,8 @@ cp kustomization_v1.yaml kustomization.yaml
 <summary><strong>✏️ OPÇÃO 3: Edição Manual (Avançado)</strong></summary>
 
 ```bash
-vi ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production/kustomization.yaml
+vi gitops-argocd/06-ecommerce-app/argocd/overlays/production/kustomization.yaml
 ```
-
-**⚠️ ATENÇÃO CRÍTICA COM INDENTAÇÃO:**
-- YAML usa **2 espaços** (não 4)
-- Hífens `-` devem estar alinhados na coluna 3
-- Exemplo CORRETO: `  - arquivo.yaml` (2 espaços antes do hífen)
-- Exemplo ERRADO: `    - arquivo.yaml` (4 espaços = erro de sintaxe)
 
 Descomentar/comentar seções:
 - **Resources:** `ecommerce-ui-backend.yaml`, `ecommerce-ui-v2-proxy.yaml`, `configmap-nginx-v2.yaml`
