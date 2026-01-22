@@ -103,12 +103,8 @@ aws sts get-caller-identity --profile devopsproject
 #    - Stack 02: EKS Cluster + Node Group + ArgoCD via Helm + Controllers
 # ⏱️  Tempo total: ~25 minutos
 # 📝 Mostra URLs e senhas no final
-```
-#### Testar acesso (Instâncias Ec2)
-kubectl get nodes
-#### Output: 3 nodes t3.medium READY
-```
 
+```
 #### 5️⃣ ArgoCD
 
 # Obter senha user admin para acesso ArgoCD
@@ -116,7 +112,6 @@ kubectl get nodes
 kubectl get secret argocd-initial-admin-secret \
   -n argocd \
   -o jsonpath="{.data.password}" | base64 -d && echo
-```
 
 #### 6️⃣ Acessar ArgoCD UI
 
