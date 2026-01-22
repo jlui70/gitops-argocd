@@ -34,13 +34,13 @@ patches:
       kind: Service
       name: ecommerce-ui
 
-# When deploying v2, uncomment this patch to delete original deployment:
-  - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: ecommerce-ui
-      $patch: delete
-    target:
-      kind: Deployment
+# # When deploying v2, uncomment this patch to delete original deployment:
+#   - patch: |-
+#       apiVersion: apps/v1
+#       kind: Deployment
+#       metadata:
+#         name: ecommerce-ui
+#       $patch: delete
+#     target:
+#       kind: Deployment
       name: ecommerce-ui
