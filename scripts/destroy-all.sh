@@ -1,21 +1,24 @@
 #!/bin/bash
 
 # Script para destruir todos os recursos na ordem correta
-# Versão: 4.0 - Simplificada
-# Data: 16 de Janeiro de 2026
-# Stacks: 00-backend, 01-networking, 02-eks-cluster
-# Changelog v4.0: Removidas stacks 03 (Karpenter), 04 (WAF), 05 (Monitoring)
+# Versão: 5.0 - ArgoCD GitOps
+# Data: 22 de Janeiro de 2026
+# Stacks: 00-backend, 01-networking, 02-eks-cluster (com ArgoCD)
+# Changelog v5.0: Adaptado para ArgoCD GitOps (deleta Application ArgoCD primeiro)
 
 set -e  # Para em caso de erro
 
 echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║     🗑️  DESTRUINDO INFRAESTRUTURA EKS - 3 STACKS               ║"
+echo "║     🗑️  DESTRUINDO INFRAESTRUTURA EKS + ARGOCD - 3 STACKS      ║"
 echo "╚══════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# PROJECT_ROOT deve apontar para o diretório raiz do projeto (gitops/), não scripts/
+# PROJECT_ROOT deve apontar para o diretório raiz do projeto (gitops-argocd/), não scripts/
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# AWS Profile usado (ajuste se necessário)
+AWS_PROFILE="devopsproject"
 
 # Função para destruir uma stack
 destroy_stack() {
@@ -46,12 +49,47 @@ destroy_stack() {
 
 # IMPORTANTE: Primeiro deletar recursos Kubernetes que criam recursos AWS
 echo "═══════════════════════════════════════════════════════════════════"
-echo "🧹 PASSO 0: Limpando recursos CI/CD (ECR + IAM)"
+echo "🧹 PASSO 0: Deletando ArgoCD Application (GitOps)"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 
-# Deletar ECR repositories (criados manualmente para CI/CD)
-echo "🗑️  Deletando ECR repositories..."
+# Verificar se kubectl consegue acessar o cluster
+if kubectl cluster-info &>/dev/null; then
+    echo "  ✅ Cluster acessível via kubectl"
+    
+    # Deletar Application ArgoCD (ArgoCD vai remover todos os recursos do Git)
+    if kubectl get application ecommerce-app -n argocd &>/dev/null 2>&1; then
+        echo "  🗑️  Deletando ArgoCD Application: ecommerce-app"
+        kubectl delete application ecommerce-app -n argocd --timeout=120s 2>/dev/null || true
+        echo "  ⏳ Aguardando ArgoCD remover recursos (ALB, Services, Pods)... (60s)"
+        sleep 60
+        echo "  ✅ Application ArgoCD deletada"
+    else
+        echo "  ℹ️  Application ArgoCD não encontrada (já deletada ou nunca criada)"
+    fi
+    
+    # Verificar e deletar namespace ecommerce se ainda existir
+    if kubectl get namespace ecommerce &>/dev/null 2>&1; then
+        echo "  🗑️  Deletando namespace ecommerce (forçando se necessário)..."
+        kubectl delete namespace ecommerce --timeout=90s 2>/dev/null || true
+        echo "  ⏳ Aguardando finalização... (30s)"
+        sleep 30
+    fi
+    
+    echo "  ✅ Recursos GitOps removidos"
+else
+    echo "  ⚠️  Cluster inaccessível via kubectl (pode já ter sido destruído)"
+    echo "  ℹ️  Prosseguindo com destroy do Terraform"
+fi
+echo ""
+
+echo "═══════════════════════════════════════════════════════════════════"
+echo "🧹 PASSO 1: Limpando recursos CI/CD (ECR + IAM)"
+echo "═══════════════════════════════════════════════════════════════════"
+echo ""
+
+# Deletar ECR repositories (criados manualmente para CI/CD - se existirem)
+echo "🗑️  Deletando ECR repositories (se existirem)..."
 ECR_REPOS=(
     "ecommerce/ecommerce-ui"
     "ecommerce/product-catalog"
@@ -63,84 +101,45 @@ ECR_REPOS=(
 )
 
 for repo in "${ECR_REPOS[@]}"; do
-    if aws ecr describe-repositories --repository-names "$repo" --region us-east-1 --profile terraform &>/dev/null; then
+    if aws ecr describe-repositories --repository-names "$repo" --region us-east-1 --profile $AWS_PROFILE &>/dev/null; then
         echo "  🗑️  Deletando ECR repo: $repo"
-        aws ecr delete-repository --repository-name "$repo" --region us-east-1 --force --profile terraform 2>/dev/null && \
+        aws ecr delete-repository --repository-name "$repo" --region us-east-1 --force --profile $AWS_PROFILE 2>/dev/null && \
             echo "    ✅ $repo deletado" || \
             echo "    ⚠️  Erro ao deletar $repo"
     fi
 done
 
-# Deletar IAM user github-actions-eks
+# Deletar IAM user github-actions-eks (se existir)
 echo ""
-echo "🗑️  Deletando IAM user github-actions-eks..."
-if aws iam get-user --user-name github-actions-eks --profile terraform &>/dev/null; then
+echo "🗑️  Deletando IAM user github-actions-eks (se existir)..."
+if aws iam get-user --user-name github-actions-eks --profile $AWS_PROFILE &>/dev/null; then
     # Delete access keys
-    ACCESS_KEYS=$(aws iam list-access-keys --user-name github-actions-eks --profile terraform --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null)
+    ACCESS_KEYS=$(aws iam list-access-keys --user-name github-actions-eks --profile $AWS_PROFILE --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null)
     for key in $ACCESS_KEYS; do
         echo "  → Deletando access key: $key"
-        aws iam delete-access-key --user-name github-actions-eks --access-key-id "$key" --profile terraform 2>/dev/null || true
+        aws iam delete-access-key --user-name github-actions-eks --access-key-id "$key" --profile $AWS_PROFILE 2>/dev/null || true
     done
     
     # Detach managed policies
-    ATTACHED_POLICIES=$(aws iam list-attached-user-policies --user-name github-actions-eks --profile terraform --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null)
+    ATTACHED_POLICIES=$(aws iam list-attached-user-policies --user-name github-actions-eks --profile $AWS_PROFILE --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null)
     for policy_arn in $ATTACHED_POLICIES; do
         echo "  → Detaching policy: $(basename $policy_arn)"
-        aws iam detach-user-policy --user-name github-actions-eks --policy-arn "$policy_arn" --profile terraform 2>/dev/null || true
+        aws iam detach-user-policy --user-name github-actions-eks --policy-arn "$policy_arn" --profile $AWS_PROFILE 2>/dev/null || true
     done
     
     # Delete inline policies
-    INLINE_POLICIES=$(aws iam list-user-policies --user-name github-actions-eks --profile terraform --query 'PolicyNames' --output text 2>/dev/null)
+    INLINE_POLICIES=$(aws iam list-user-policies --user-name github-actions-eks --profile $AWS_PROFILE --query 'PolicyNames' --output text 2>/dev/null)
     for policy_name in $INLINE_POLICIES; do
         echo "  → Deletando inline policy: $policy_name"
-        aws iam delete-user-policy --user-name github-actions-eks --policy-name "$policy_name" --profile terraform 2>/dev/null || true
+        aws iam delete-user-policy --user-name github-actions-eks --policy-name "$policy_name" --profile $AWS_PROFILE 2>/dev/null || true
     done
     
     # Delete user
-    aws iam delete-user --user-name github-actions-eks --profile terraform 2>/dev/null && \
+    aws iam delete-user --user-name github-actions-eks --profile $AWS_PROFILE 2>/dev/null && \
         echo "  ✅ IAM user github-actions-eks deletado" || \
         echo "  ⚠️  Erro ao deletar IAM user"
 else
     echo "  ℹ️  IAM user github-actions-eks não encontrado"
-fi
-
-echo ""
-echo "═══════════════════════════════════════════════════════════════════"
-echo "🧹 PASSO 1: Deletando recursos Kubernetes (Ingress → ALB)"
-echo "═══════════════════════════════════════════════════════════════════"
-echo ""
-
-# Verificar se kubectl consegue acessar o cluster
-if kubectl cluster-info &>/dev/null; then
-    echo "  ✅ Cluster acessível via kubectl"
-    
-    # Deletar namespace ecommerce (aplicação com 7 microserviços + Ingress → ALB)
-    if kubectl get namespace ecommerce &>/dev/null; then
-        echo "  🗑️  Deletando namespace ecommerce (7 microserviços + ALB)..."
-        kubectl delete namespace ecommerce --timeout=90s 2>/dev/null || true
-    fi
-    
-    # Deletar recursos do namespace sample-app (se existir)
-    if kubectl get namespace sample-app &>/dev/null; then
-        echo "  🗑️  Deletando namespace sample-app..."
-        kubectl delete ingress eks-devopsproject-ingress -n sample-app --ignore-not-found=true 2>/dev/null || true
-        kubectl delete service nginx -n sample-app --ignore-not-found=true 2>/dev/null || true
-        kubectl delete deployment nginx -n sample-app --ignore-not-found=true 2>/dev/null || true
-        kubectl delete namespace sample-app --timeout=90s 2>/dev/null || true
-    fi
-    
-    # Deletar kube-state-metrics se existir (instalado manualmente via Helm)
-    if helm list -n kube-system | grep -q kube-state-metrics; then
-        echo "  🗑️  Desinstalando kube-state-metrics..."
-        helm uninstall kube-state-metrics -n kube-system 2>/dev/null || true
-    fi
-
-    echo "  ⏳ Aguardando ALB(s) serem deletados pela AWS (45s)..."
-    sleep 45
-    echo "  ✅ Recursos Kubernetes deletados"
-else
-    echo "  ⚠️  Cluster inaccessível via kubectl (pode já ter sido destruído)"
-    echo "  ℹ️  Prosseguindo com destroy do Terraform (limpará ALB se existir)"
 fi
 echo ""
 
@@ -148,13 +147,15 @@ echo ""
 echo "📋 Ordem de destruição: 02-eks-cluster → 01-networking → 00-backend"
 echo ""
 
-# Stack 02: Remover helm releases do state (cluster inacessível após addons destruídos)
+# Stack 02: Remover helm releases do state (ArgoCD + ALB Controller + External DNS)
 echo "═══════════════════════════════════════════════════════════════════"
 echo "🧹 Stack 02: Limpando state de helm releases órfãos..."
 echo "═══════════════════════════════════════════════════════════════════"
 cd "$PROJECT_ROOT/02-eks-cluster"
+terraform state rm helm_release.argocd 2>/dev/null && echo "  ✅ ArgoCD helm release removido do state" || echo "  ℹ️  ArgoCD já removido ou não existe"
 terraform state rm helm_release.load_balancer_controller 2>/dev/null && echo "  ✅ ALB Controller helm release removido do state" || echo "  ℹ️  ALB Controller já removido ou não existe"
 terraform state rm helm_release.external_dns 2>/dev/null && echo "  ✅ External DNS helm release removido do state" || echo "  ℹ️  External DNS já removido ou não existe"
+terraform state rm helm_release.metrics_server 2>/dev/null && echo "  ✅ Metrics Server helm release removido do state" || echo "  ℹ️  Metrics Server já removido ou não existe"
 echo ""
 
 destroy_stack "Stack 02 - EKS Cluster" "02-eks-cluster"
@@ -174,13 +175,13 @@ delete_iam_role() {
         return 0
     fi
     
-    if aws iam get-role --role-name "$role_name" --profile terraform &>/dev/null; then
+    if aws iam get-role --role-name "$role_name" --profile $AWS_PROFILE &>/dev/null; then
         echo "  🗑️  Deletando role: $role_name"
         
         # Detach managed policies
         ATTACHED_POLICIES=$(aws iam list-attached-role-policies \
             --role-name "$role_name" \
-            --profile terraform \
+            --profile $AWS_PROFILE \
             --query 'AttachedPolicies[].PolicyArn' \
             --output text 2>/dev/null || echo "")
         
@@ -188,13 +189,13 @@ delete_iam_role() {
             aws iam detach-role-policy \
                 --role-name "$role_name" \
                 --policy-arn "$policy_arn" \
-                --profile terraform 2>/dev/null || true
+                --profile $AWS_PROFILE 2>/dev/null || true
         done
         
         # Delete inline policies
         INLINE_POLICIES=$(aws iam list-role-policies \
             --role-name "$role_name" \
-            --profile terraform \
+            --profile $AWS_PROFILE \
             --query 'PolicyNames' \
             --output text 2>/dev/null || echo "")
         
@@ -202,13 +203,13 @@ delete_iam_role() {
             aws iam delete-role-policy \
                 --role-name "$role_name" \
                 --policy-name "$policy_name" \
-                --profile terraform 2>/dev/null || true
+                --profile $AWS_PROFILE 2>/dev/null || true
         done
         
         # Remove from instance profiles AND delete the profiles
         INSTANCE_PROFILES=$(aws iam list-instance-profiles-for-role \
             --role-name "$role_name" \
-            --profile terraform \
+            --profile $AWS_PROFILE \
             --query 'InstanceProfiles[].InstanceProfileName' \
             --output text 2>/dev/null || echo "")
         
@@ -217,17 +218,17 @@ delete_iam_role() {
             aws iam remove-role-from-instance-profile \
                 --instance-profile-name "$profile_name" \
                 --role-name "$role_name" \
-                --profile terraform 2>/dev/null || true
+                --profile $AWS_PROFILE 2>/dev/null || true
             
             # Deletar o instance profile (órfão criado pelo EKS)
             echo "    → Deletando instance profile órfão: $profile_name"
             aws iam delete-instance-profile \
                 --instance-profile-name "$profile_name" \
-                --profile terraform 2>/dev/null || true
+                --profile $AWS_PROFILE 2>/dev/null || true
         done
         
         # Delete role
-        aws iam delete-role --role-name "$role_name" --profile terraform 2>/dev/null && \
+        aws iam delete-role --role-name "$role_name" --profile $AWS_PROFILE 2>/dev/null && \
             echo "    ✅ Role $role_name deletada" || \
             echo "    ⚠️  Role $role_name não pôde ser deletada"
     fi
@@ -260,7 +261,7 @@ get_policy_name_from_state() {
 }
 
 # Obter account ID dinamicamente
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --profile terraform 2>/dev/null || echo "")
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --profile $AWS_PROFILE 2>/dev/null || echo "")
 
 if [ -z "$ACCOUNT_ID" ]; then
     echo "  ⚠️  Não foi possível obter Account ID, pulando limpeza de IAM"
@@ -295,9 +296,9 @@ else
         POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy"
     fi
     
-    if aws iam get-policy --policy-arn "$POLICY_ARN" --profile terraform &>/dev/null; then
+    if aws iam get-policy --policy-arn "$POLICY_ARN" --profile $AWS_PROFILE &>/dev/null; then
         echo "  🗑️  Deletando policy: $(basename $POLICY_ARN)"
-        aws iam delete-policy --policy-arn "$POLICY_ARN" --profile terraform 2>/dev/null && \
+        aws iam delete-policy --policy-arn "$POLICY_ARN" --profile $AWS_PROFILE 2>/dev/null && \
             echo "    ✅ Policy deletada" || \
             echo "    ⚠️  Policy não pôde ser deletada (pode estar attached)"
     fi
@@ -320,9 +321,9 @@ else
         POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/KarpenterControllerPolicy"
     fi
     
-    if aws iam get-policy --policy-arn "$POLICY_ARN" --profile terraform &>/dev/null; then
+    if aws iam get-policy --policy-arn "$POLICY_ARN" --profile $AWS_PROFILE &>/dev/null; then
         echo "  🗑️  Deletando policy: $(basename $POLICY_ARN)"
-        aws iam delete-policy --policy-arn "$POLICY_ARN" --profile terraform 2>/dev/null && \
+        aws iam delete-policy --policy-arn "$POLICY_ARN" --profile $AWS_PROFILE 2>/dev/null && \
             echo "    ✅ Policy deletada" || \
             echo "    ⚠️  Policy não pôde ser deletada"
     fi
@@ -367,17 +368,17 @@ if [[ $destroy_backend =~ ^[Ss]$ ]]; then
     echo "🧹 Esvaziando bucket S3: $BUCKET_NAME"
     
     # Verificar se bucket existe antes de tentar esvaziar
-    if aws s3 ls "s3://$BUCKET_NAME" --profile terraform &>/dev/null; then
+    if aws s3 ls "s3://$BUCKET_NAME" --profile $AWS_PROFILE &>/dev/null; then
         echo "  → Removendo todos os objetos e versões do bucket..."
         
         # Método 1: Usar aws s3 rm com --recursive (mais simples e confiável)
-        aws s3 rm "s3://$BUCKET_NAME" --recursive --profile terraform 2>/dev/null || true
+        aws s3 rm "s3://$BUCKET_NAME" --recursive --profile $AWS_PROFILE 2>/dev/null || true
         
         # Método 2: Deletar versões antigas (versionamento habilitado)
         echo "  → Verificando versões antigas..."
         VERSIONS=$(aws s3api list-object-versions \
             --bucket "$BUCKET_NAME" \
-            --profile terraform \
+            --profile $AWS_PROFILE \
             --output json \
             --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
         
@@ -385,7 +386,7 @@ if [[ $destroy_backend =~ ^[Ss]$ ]]; then
             echo "  → Removendo versões de objetos..."
             aws s3api delete-objects \
                 --bucket "$BUCKET_NAME" \
-                --profile terraform \
+                --profile $AWS_PROFILE \
                 --delete "$VERSIONS" 2>/dev/null || true
         fi
         
@@ -393,7 +394,7 @@ if [[ $destroy_backend =~ ^[Ss]$ ]]; then
         echo "  → Verificando delete markers..."
         MARKERS=$(aws s3api list-object-versions \
             --bucket "$BUCKET_NAME" \
-            --profile terraform \
+            --profile $AWS_PROFILE \
             --output json \
             --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
         
@@ -401,7 +402,7 @@ if [[ $destroy_backend =~ ^[Ss]$ ]]; then
             echo "  → Removendo delete markers..."
             aws s3api delete-objects \
                 --bucket "$BUCKET_NAME" \
-                --profile terraform \
+                --profile $AWS_PROFILE \
                 --delete "$MARKERS" 2>/dev/null || true
         fi
         
