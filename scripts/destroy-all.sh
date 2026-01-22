@@ -324,10 +324,13 @@ get_role_name_from_state() {
     local stack_path=$1
     local resource_address=$2
     
+    # Verificar se o diretório existe
+    [ ! -d "$PROJECT_ROOT/$stack_path" ] && return
+    
     cd "$PROJECT_ROOT/$stack_path"
     
-    # Tentar obter nome da role do state
-    local role_name=$(terraform state show "$resource_address" 2>/dev/null | grep -E "^\s+name\s+=" | head -1 | awk -F'"' '{print $2}')
+    # Tentar obter nome da role do state (com timeout de 5s)
+    local role_name=$(timeout 5 terraform state show "$resource_address" 2>/dev/null | grep -E "^\s+name\s+=" | head -1 | awk -F'"' '{print $2}')
     
     echo "$role_name"
 }
@@ -337,10 +340,13 @@ get_policy_name_from_state() {
     local stack_path=$1
     local resource_address=$2
     
+    # Verificar se o diretório existe
+    [ ! -d "$PROJECT_ROOT/$stack_path" ] && return
+    
     cd "$PROJECT_ROOT/$stack_path"
     
-    # Tentar obter nome da policy do state
-    local policy_name=$(terraform state show "$resource_address" 2>/dev/null | grep -E "^\s+name\s+=" | head -1 | awk -F'"' '{print $2}')
+    # Tentar obter nome da policy do state (com timeout de 5s)
+    local policy_name=$(timeout 5 terraform state show "$resource_address" 2>/dev/null | grep -E "^\s+name\s+=" | head -1 | awk -F'"' '{print $2}')
     
     echo "$policy_name"
 }
@@ -387,41 +393,6 @@ else
             echo "    ✅ Policy deletada" || \
             echo "    ⚠️  Policy não pôde ser deletada (pode estar attached)"
     fi
-    echo ""
-    
-    # ======================================================================
-    # STACK 03 - KARPENTER ROLES (lendo dinamicamente do state)
-    # ======================================================================
-    echo "  🗂️  Stack 03 - Karpenter"
-    
-    ROLE_KARPENTER=$(get_role_name_from_state "03-karpenter-auto-scaling" "aws_iam_role.karpenter_controller")
-    POLICY_KARPENTER=$(get_policy_name_from_state "03-karpenter-auto-scaling" "aws_iam_policy.karpenter_controller")
-    
-    [ -n "$ROLE_KARPENTER" ] && delete_iam_role "$ROLE_KARPENTER" || delete_iam_role "KarpenterControllerRole"
-    
-    # Deletar policy Karpenter
-    if [ -n "$POLICY_KARPENTER" ]; then
-        POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_KARPENTER}"
-    else
-        POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/KarpenterControllerPolicy"
-    fi
-    
-    if aws iam get-policy --policy-arn "$POLICY_ARN" --profile $AWS_PROFILE &>/dev/null; then
-        echo "  🗑️  Deletando policy: $(basename $POLICY_ARN)"
-        aws iam delete-policy --policy-arn "$POLICY_ARN" --profile $AWS_PROFILE 2>/dev/null && \
-            echo "    ✅ Policy deletada" || \
-            echo "    ⚠️  Policy não pôde ser deletada"
-    fi
-    echo ""
-    
-    # ======================================================================
-    # STACK 05 - MONITORING ROLES (lendo dinamicamente do state)
-    # ======================================================================
-    echo "  🗂️  Stack 05 - Monitoring"
-    
-    ROLE_GRAFANA=$(get_role_name_from_state "05-monitoring" "aws_iam_role.grafana")
-    
-    [ -n "$ROLE_GRAFANA" ] && delete_iam_role "$ROLE_GRAFANA" || delete_iam_role "GrafanaWorkspaceRole"
     echo ""
     
     echo "  ✅ Limpeza de IAM concluída (modo dinâmico v3.2)"
