@@ -79,17 +79,12 @@ resource "helm_release" "argocd" {
 # ══════════════════════════════════════════════════════════════════════
 # ARGOCD CLI Secret (admin password)
 # ══════════════════════════════════════════════════════════════════════
+# ArgoCD creates this secret automatically - we just read it
 
-resource "kubernetes_secret" "argocd_initial_admin_secret" {
+data "kubernetes_secret" "argocd_initial_admin_secret" {
   metadata {
     name      = "argocd-initial-admin-secret"
     namespace = "argocd"
-  }
-
-  data = {
-    # Default password: AdminArgo2026! (bcrypt hash)
-    # Use: argocd account update-password
-    password = "JDJhJDEwJHZxcVlEWnAuV0tMQmFZLlVOdjQuNE9YaFJpZ25oSlJWWkZMNGJZeTIuaS94eGdMNjRvTVEu"
   }
 
   depends_on = [helm_release.argocd]
@@ -105,7 +100,7 @@ output "argocd_server_url" {
 }
 
 output "argocd_admin_password" {
-  description = "ArgoCD admin password (initial)"
-  value       = "AdminArgo2026!"
+  description = "ArgoCD admin password (initial - base64 decoded)"
+  value       = try(base64decode(data.kubernetes_secret.argocd_initial_admin_secret.data["password"]), "use kubectl to get: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d")
   sensitive   = true
 }
