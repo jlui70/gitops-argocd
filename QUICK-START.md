@@ -195,10 +195,10 @@ kubectl get secret argocd-initial-admin-secret \
 
 ```bash
 # Port-forward (em outro terminal)
-kubectl port-forward svc/argocd-server -n argocd 8080:443
+kubectl port-forward svc/argocd-server -n argocd 8080:80
 
 # Abrir navegador:
-# URL: https://localhost:8080
+# URL: http://localhost:8080  (HTTP não HTTPS!)
 # User: admin
 # Pass: [senha do comando anterior]
 ```
