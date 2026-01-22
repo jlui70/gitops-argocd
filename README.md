@@ -103,17 +103,18 @@ aws sts get-caller-identity --profile devopsproject
 #    - Stack 02: EKS Cluster + Node Group + ArgoCD via Helm + Controllers
 # ⏱️  Tempo total: ~25 minutos
 # 📝 Mostra URLs e senhas no final
-
 ```
-#### 5️⃣ ArgoCD
 
+#### 4️⃣ ArgoCD
+
+```bash
 # Obter senha user admin para acesso ArgoCD
-
 kubectl get secret argocd-initial-admin-secret \
   -n argocd \
   -o jsonpath="{.data.password}" | base64 -d && echo
+```
 
-#### 6️⃣ Acessar ArgoCD UI
+#### 5️⃣ Acessar ArgoCD UI
 
 **Via LoadBalancer (já exposto publicamente):**
 ```bash
@@ -127,7 +128,7 @@ echo "🌐 ArgoCD UI: http://$ARGOCD_URL"
 # Pass: [use comando da etapa anterior]
 ```
 
-#### 7️⃣ Acessar Aplicação Ecommerce via ALB
+#### 6️⃣ Acessar Aplicação Ecommerce via ALB
 
 ```bash
 # Obter URL do ALB
@@ -136,6 +137,7 @@ ALB_URL=$(kubectl get ingress ecommerce-ingress -n ecommerce \
 
 echo "🌐 Aplicação disponível em: http://$ALB_URL"
 ```
+
 
 **✅ Setup completo! Agora você tem:**
 - ✅ EKS Cluster rodando
@@ -196,7 +198,6 @@ Descomentar/comentar seções:
 - **Patches:** Service selector e deployment deletion
 
 Veja [INSTRUCOES-V2.md](06-ecommerce-app/argocd/overlays/production/INSTRUCOES-V2.md) para passo-a-passo detalhado.
-
 </details>
 
 ---
