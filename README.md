@@ -166,36 +166,67 @@ aws sts get-caller-identity --profile devopsproject
 
 #### 3️⃣ Deploy Infraestrutura com Terraform
 
-**Stack 1: Backend (S3 + DynamoDB para Terraform state)**
+**Opção Automatizada (RECOMENDADO):**
+```bash
+# Script que cria TUDO automaticamente: Backend → Networking → EKS+ArgoCD
+./scripts/rebuild-all.sh
+
+# ✅ Cria automaticamente:
+#    - Stack 00: S3 bucket + DynamoDB table
+#    - Stack 01: VPC + 6 Subnets + 2 NAT Gateways + IGW
+#    - Stack 02: EKS Cluster + Node Group + ArgoCD via Helm + Controllers
+# ⏱️  Tempo total: ~25 minutos
+# 📝 Mostra URLs e senhas no final
+```
+
+**Opção Manual (para debug ou customização):**
+
+<details>
+<summary>Clique para ver deploy manual por stack</summary>
+
+**Stack 1: Backend**
 ```bash
 cd 00-backend
 terraform init
 terraform apply -auto-approve
 # ✅ Cria: S3 bucket + DynamoDB table
-# ⏱️  Tempo: ~30 segundos
+# ⏱️  ~30 segundos
 ```
 
-**Stack 2: Networking (VPC + Subnets + NAT)**
+**Stack 2: Networking**
 ```bash
 cd ../01-networking
 terraform init
 terraform apply -auto-approve
-# ✅ Cria: VPC + 6 Subnets + 2 NAT Gateways + IGW
-# ⏱️  Tempo: ~5 minutos
+# ✅ Cria: VPC + Subnets + NAT Gateways
+# ⏱️  ~5 minutos
 ```
 
-**Stack 3: EKS + ArgoCD (Cluster + Node Group + ArgoCD instalado)**
+**Stack 3: EKS + ArgoCD**
 ```bash
 cd ../02-eks-cluster
 terraform init
+
+# Criar cluster primeiro
+terraform apply -target=aws_eks_cluster.cluster -auto-approve
+# ⏱️  ~10 minutos
+
+# Configurar kubeconfig
+aws eks update-kubeconfig \
+  --name eks-devopsproject-cluster \
+  --region us-east-1 \
+  --profile devopsproject
+
+# Aplicar resto (node group + ArgoCD)
 terraform apply -auto-approve
-# ✅ Cria: EKS Cluster + Node Group + ArgoCD via Helm + ALB Controller + External DNS
-# ⏱️  Tempo: ~15-20 minutos
+# ⏱️  ~10 minutos
 ```
 
-**Tempo total do deploy:** ~25 minutos
+</details>
 
-#### 4️⃣ Configurar kubectl
+#### 4️⃣ Configurar kubectl (se usou deploy manual)
+
+**Se usou `rebuild-all.sh`, pule esta etapa - já está configurado automaticamente!**
 
 ```bash
 # Configurar kubeconfig para acessar o cluster
@@ -207,30 +238,43 @@ aws eks update-kubeconfig \
 # Testar acesso
 kubectl get nodes
 # Output esperado: 3 nodes t3.medium READY
+```
 
+#### 5️⃣ Verificar ArgoCD
+
+```bash
 # Ver ArgoCD instalado
 kubectl get pods -n argocd
 # Output esperado: 7 pods ArgoCD rodando
-```
 
-#### 5️⃣ Acessar ArgoCD UI
-
-```bash
-# Obter senha do admin
+# Obter senha do admin (também mostrada no rebuild-all.sh)
 kubectl get secret argocd-initial-admin-secret \
   -n argocd \
   -o jsonpath="{.data.password}" | base64 -d && echo
-
-# Port-forward para acessar UI
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-# Abrir navegador:
-# URL: https://localhost:8080
-# User: admin
-# Pass: [senha do comando anterior]
 ```
 
-#### 6️⃣ Aplicar Application ArgoCD (conecta Git → Cluster)
+#### 6️⃣ Acessar ArgoCD UI
+
+**Via LoadBalancer (já exposto publicamente):**
+```bash
+# Obter URL do ArgoCD
+ARGOCD_URL=$(kubectl get svc argocd-server -n argocd \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+echo "🌐 ArgoCD UI: http://$ARGOCD_URL"
+
+# User: admin
+# Pass: [use comando da etapa anterior]
+```
+
+**Alternativa via Port-Forward:**
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:80 &
+
+# Abrir navegador: http://localhost:8080
+```
+
+#### 7️⃣ Aplicar Application ArgoCD (conecta Git → Cluster)
 
 ```bash
 # Voltar para repositório de manifestos
@@ -244,7 +288,7 @@ kubectl get application -n argocd
 # Output esperado: ecommerce-app | Synced | Healthy
 ```
 
-#### 7️⃣ Validar Deployment
+#### 8️⃣ Validar Deployment
 
 ```bash
 # Ver pods da aplicação
@@ -277,32 +321,77 @@ curl -I http://$ALB_URL
 
 ## 🔄 Testes GitOps - Deploy v1 → v2 → Rollback
 
-### 📋 Cenário: Atualizar aplicação via Git Push
+### 📋 Três Formas de Alternar Versões
 
-**Estado Atual:** v1 rodando (sem banner "NEW FEATURES")
+Você pode escolher qualquer um dos métodos abaixo para alternar entre v1 e v2:
 
-#### Deploy v2 (com banner)
+<details>
+<summary><strong>🎯 OPÇÃO 1: Script Helper (Mais Fácil)</strong></summary>
 
 ```bash
-# 1. Editar manifesto Kustomize
 cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
-vi kustomization.yaml
+./switch-version.sh
+# Menu interativo:
+# 1 - Ativar v2 (banner)
+# 2 - Voltar para v1
+# 3 - Cancelar
+```
 
-# 2. Descomentar seção v2 (3 blocos):
-#
-# A) Descomentar patches v2:
-#   - ecommerce-ui-backend.yaml
-#   - ecommerce-ui-v2-proxy.yaml
-#
-# B) Descomentar configMapGenerator v2:
-#   - configmap-nginx-v2.yaml
-#
-# C) Descomentar imagem v2:
-#   - newTag: v2
-#
-# Veja o arquivo README.md nesta pasta para instruções detalhadas
+**Vantagens:** Detecção automática da versão atual, cria backup, mostra comandos git prontos.
+</details>
 
-# 3. Commit e push
+<details>
+<summary><strong>📁 OPÇÃO 2: Copiar Template (Simples)</strong></summary>
+
+```bash
+cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
+
+# Para ativar v2 (banner):
+cp kustomization_v2.yaml kustomization.yaml
+
+# Para voltar v1 (sem banner):
+cp kustomization_v1.yaml kustomization.yaml
+```
+
+**Vantagens:** Sem erro de indentação YAML, copy-paste seguro, não precisa conhecer vi.
+</details>
+
+<details>
+<summary><strong>✏️ OPÇÃO 3: Edição Manual (Avançado)</strong></summary>
+
+```bash
+vi ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production/kustomization.yaml
+```
+
+**⚠️ ATENÇÃO CRÍTICA COM INDENTAÇÃO:**
+- YAML usa **2 espaços** (não 4)
+- Hífens `-` devem estar alinhados na coluna 3
+- Exemplo CORRETO: `  - arquivo.yaml` (2 espaços antes do hífen)
+- Exemplo ERRADO: `    - arquivo.yaml` (4 espaços = erro de sintaxe)
+
+Descomentar/comentar seções:
+- **Resources:** `ecommerce-ui-backend.yaml`, `ecommerce-ui-v2-proxy.yaml`, `configmap-nginx-v2.yaml`
+- **Patches:** Service selector e deployment deletion
+
+Veja [INSTRUCOES-V2.md](06-ecommerce-app/argocd/overlays/production/INSTRUCOES-V2.md) para passo-a-passo detalhado.
+</details>
+
+---
+
+### Cenário Completo: v1 → v2 → Rollback
+
+**Estado Inicial:** v1 rodando (sem banner "NEW FEATURES")
+
+#### Deploy v2 (com Banner)
+
+```bash
+# 1. Editar manifesto Kustomize (escolha uma das 3 opções acima)
+cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
+
+# Exemplo usando OPÇÃO 2 (recomendado para iniciantes):
+cp kustomization_v2.yaml kustomization.yaml
+
+# 2. Commit e push
 git add kustomization.yaml
 git commit -m "Deploy v2 - adiciona banner NEW FEATURES"
 git push origin main
@@ -344,19 +433,18 @@ curl http://$ALB_URL
 #### Rollback v2 → v1
 
 ```bash
-# 1. Editar manifesto
+# 1. Editar manifesto (escolha uma das 3 opções)
 cd ~/gitops-argocd/06-ecommerce-app/argocd/overlays/production
-vi kustomization.yaml
 
-# 2. Comentar seção v2 (reverter mudanças)
-# Veja README.md para instruções
+# Exemplo usando OPÇÃO 2:
+cp kustomization_v1.yaml kustomization.yaml
 
-# 3. Commit e push
+# 2. Commit e push
 git add kustomization.yaml
 git commit -m "Rollback para v1 - remove banner"
 git push origin main
 
-# 4. ArgoCD detecta e reverte automaticamente (30-45s)
+# 3. ArgoCD detecta e reverte automaticamente (30-45s)
 ```
 
 **O que acontece automaticamente:**
