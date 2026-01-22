@@ -191,16 +191,30 @@ kubectl get secret argocd-initial-admin-secret \
 # Guardar essa senha para acessar UI
 ```
 
-### Acessar ArgoCD UI (opcional)
+### Acessar ArgoCD UI
+
+ArgoCD está exposto via **LoadBalancer** (acesso público):
 
 ```bash
-# Port-forward (em outro terminal)
-kubectl port-forward svc/argocd-server -n argocd 8080:80
+# Obter URL pública do ArgoCD
+ARGOCD_URL=$(kubectl get svc argocd-server -n argocd \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
-# Abrir navegador:
-# URL: http://localhost:8080  (HTTP não HTTPS!)
+echo "🌐 ArgoCD UI: http://$ARGOCD_URL"
+
+# Credenciais:
 # User: admin
-# Pass: [senha do comando anterior]
+# Pass: Execute abaixo para ver a senha
+cd ~/lab-argo/gitops-argocd/02-eks-cluster
+terraform output -raw argocd_admin_password
+```
+
+**Alternativa: Port-forward local (opcional)**
+```bash
+# Se preferir acessar via localhost
+kubectl port-forward svc/argocd-server -n argocd 8080:80 &
+
+# Acesse: http://localhost:8080
 ```
 
 ---
