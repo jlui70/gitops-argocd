@@ -40,7 +40,7 @@ Tudo em **um único repositório** para facilitar:
 
 ---
 
-## ⚡ TL;DR - Quick Start
+## ⚡ Quick Start
 
 **Quer começar rápido?** Siga o guia passo-a-passo:
 
