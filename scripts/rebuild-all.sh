@@ -144,6 +144,20 @@ sleep 10
 echo ""
 
 apply_stack "Stack 01 - Networking (VPC)" "01-networking"
+
+# Preparar repositórios Helm antes de aplicar Stack 02
+echo "═══════════════════════════════════════════════════════════════════"
+echo "📦 Preparando repositórios Helm"
+echo "═══════════════════════════════════════════════════════════════════"
+echo "  → Adicionando AWS EKS Charts..."
+helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true
+echo "  → Adicionando ArgoCD Charts..."
+helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
+echo "  → Atualizando índices..."
+helm repo update
+echo "  ✅ Repositórios Helm configurados"
+echo ""
+
 apply_stack "Stack 02 - EKS Cluster + ArgoCD" "02-eks-cluster"
 
 # Configurar kubectl após cluster criado
