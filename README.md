@@ -12,19 +12,34 @@
 
 ---
 
-## 🎯 Visão Geral
+## 📋 Sobre o Projeto
 
-Este projeto demonstra uma **pipeline GitOps 100% real** para deploy automatizado em Kubernetes (Amazon EKS) utilizando **ArgoCD** e as melhores práticas de DevOps moderno:
+Este projeto demonstra a implementação de uma **pipeline GitOps 100% funcional** utilizando ArgoCD e Amazon EKS, onde deploys acontecem automaticamente via `git push` sem intervenção manual.
 
+Para validar a solução, desenvolvi uma infraestrutura completa em AWS, onde:
+
+🏗️ **Terraform** provisiona toda a infraestrutura de forma modular (Backend, VPC, EKS)  
+🔄 **ArgoCD** monitora o repositório Git e sincroniza automaticamente as mudanças no cluster  
+🎯 **Objetivo**: Demonstrar a eficácia do GitOps com deploy contínuo, zero downtime e rollback instantâneo  
+
+### 🔄 Fluxo GitOps Validado
+
+**Deploy Automático**: Ao fazer `git push` com mudanças nos manifestos Kubernetes, o ArgoCD detecta (polling 30s) e aplica automaticamente no cluster EKS  
+**Blue/Green Deployment**: Estratégia com Kustomize Overlays permite alternar entre versões (v1/v2) sem downtime, preservando o ALB  
+**Rollback Instantâneo**: Reverter para versão anterior é simples como editar `kustomization.yaml` e fazer push  
+
+✅ **Resultado**: O projeto comprova que GitOps com ArgoCD oferece uma pipeline moderna, declarativa e confiável, eliminando deploys manuais e garantindo que o estado do cluster sempre reflita o Git como única fonte da verdade.
+
+### 🛠️ Stack Tecnológica
 
 - ✅ **GitOps com ArgoCD** - Deploy automático via `git push` (polling 30s)
+- ✅ **Amazon EKS** - Cluster Kubernetes gerenciado na AWS
+- ✅ **Terraform** - Infraestrutura como Código modular (Backend, Networking, EKS+ArgoCD)
+- ✅ **Kustomize** - Gerenciamento declarativo de ambientes (overlays v1/v2)
+- ✅ **AWS Load Balancer Controller** - Ingress nativo AWS com ALB
+- ✅ **External DNS** - Gerenciamento automático de registros Route53
+- ✅ **IAM + RBAC + OIDC** - Segurança e controle de acesso
 - ✅ **Blue/Green Deployment** - Zero downtime e rollback instantâneo
-- ✅ **Infraestrutura como Código** - Terraform modular (Backend, Networking, EKS+ArgoCD)
-- ✅ **Kustomize Overlays** - Gerenciamento declarativo de ambientes (v1/v2)
-- ✅ **Segurança** - IAM + RBAC + OIDC
-- ✅ **Aplicação Demo** - E-commerce com 7 microserviços
-- ✅ **Ingress Controller** - AWS Load Balancer Controller
-- ✅ **Auto-Sync** - ArgoCD detecta mudanças no Git e aplica automaticamente
 
 ---
 
