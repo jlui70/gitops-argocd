@@ -1,6 +1,10 @@
 # GitOps Pipeline - EKS com ArgoCD
 
 <p align="center">
+  <img src="Diagrama completo gitops-argocd.png" alt="Arquitetura GitOps com ArgoCD" />
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/GitOps-ArgoCD-00ADD8?style=for-the-badge&logo=argo&logoColor=white" />
   <img src="https://img.shields.io/badge/CD-ArgoCD-EF7B4D?style=for-the-badge&logo=argo&logoColor=white" />
   <img src="https://img.shields.io/badge/IaC-Terraform-623CE4?style=for-the-badge&logo=terraform&logoColor=white" />
