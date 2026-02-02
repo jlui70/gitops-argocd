@@ -8,32 +8,32 @@ resources:
   - ../../base
   # V2 Resources (Backend + Proxy - WITH banner)
   # UNCOMMENT 3 LINES BELOW TO DEPLOY V2:
-    - ecommerce-ui-backend.yaml
-    - ecommerce-ui-v2-proxy.yaml
-    - configmap-nginx-v2.yaml
+  - ecommerce-ui-backend.yaml
+  - ecommerce-ui-v2-proxy.yaml
+  - configmap-nginx-v2.yaml
 
 # Service Selector Patch
-# patches:
+patches:
   # Route traffic to v2
   # UNCOMMENT TO ACTIVATE V2:
-  # - patch: |-
-        - op: replace
-          path: /spec/selector
-          value:
-            app: ecommerce-ui
-            version: v2
-      target:
-        kind: Service
-        name: ecommerce-ui
+  - patch: |-
+      - op: replace
+        path: /spec/selector
+        value:
+          app: ecommerce-ui
+          version: v2
+    target:
+      kind: Service
+      name: ecommerce-ui
 
   # Delete original v1 deployment
   # UNCOMMENT TO ACTIVATE V2:
-    - patch: |-
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: ecommerce-ui
-        $patch: delete
-      target:
-        kind: Deployment
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
         name: ecommerce-ui
+      $patch: delete
+    target:
+      kind: Deployment
+      name: ecommerce-ui
