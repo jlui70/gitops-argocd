@@ -28,7 +28,7 @@ Para validar a solução, desenvolvi uma infraestrutura completa em AWS, onde:
 
 ### 🔄 Fluxo GitOps Validado
 
-**Deploy Automático**: Ao fazer `git push` com mudanças nos manifestos Kubernetes, o ArgoCD detecta (polling 30s) e aplica automaticamente no cluster EKS  
+**Deploy Automático**: Ao fazer `push` com mudanças nos manifestos Kubernetes, o ArgoCD detecta (polling 30s) e aplica automaticamente no cluster EKS  
 **Blue/Green Deployment**: Estratégia com Kustomize Overlays permite alternar entre versões (v1/v2) sem downtime, preservando o ALB  
 **Rollback Instantâneo**: Reverter para versão anterior é simples como editar `kustomization.yaml` e fazer push  
 
